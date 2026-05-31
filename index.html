@@ -7475,5 +7475,208 @@ d) Discuss the well control plan and reinforce individual crew duties
 })();
 </script>
 
+<script id="v27-training-exam-render-fix">
+/* =========================================================
+   V27 TRAINING / EXAM RENDER FIX
+   Fixes blank Training Studio caused by late navigation patches showing
+   #view-training as a block instead of flex. Adds a robust fallback renderer,
+   exam fullscreen layout, live timing/progress pane, and 10-minute warning.
+   ========================================================= */
+(function(){
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g,' ').replace(/\s+/g,' ').trim();
+  function state(){ try { return APP_STATE || {}; } catch(_) { return {}; } }
+  function ui(){ try { return UI || {}; } catch(_) { return {}; } }
+
+  function installCss(){
+    if($('v27TrainingExamCss')) return;
+    const css = document.createElement('style');
+    css.id = 'v27TrainingExamCss';
+    css.textContent = `
+      #view-training:not(.hidden){display:flex!important;flex-direction:row!important;}
+      #view-training:not(.hidden)>section{display:flex!important;flex:1 1 auto!important;min-width:0!important;width:auto!important;}
+      #view-training:not(.hidden) #questionScreen{display:flex!important;min-width:0!important;}
+      body.exam-focus{overflow:hidden!important;}
+      body.exam-focus #view-training{display:flex!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:90!important;background:#fff!important;}
+      body.exam-focus .app-sidebar, body.exam-focus header{display:none!important;}
+      body.exam-focus #trainingSidebar{display:none!important;}
+      body.exam-focus #examInlineNav{display:flex!important;left:14px!important;top:14px!important;bottom:14px!important;width:210px!important;z-index:120!important;}
+      body.exam-focus.exam-nav-collapsed #examInlineNav{display:none!important;}
+      body.exam-focus #view-training>section{margin-left:238px!important;width:calc(100vw - 238px)!important;height:100vh!important;overflow:auto!important;}
+      body.exam-focus.exam-nav-collapsed #view-training>section{margin-left:0!important;width:100vw!important;}
+      body.exam-focus #questionScreen{max-width:min(1180px,calc(100vw - 260px))!important;height:auto!important;min-height:100vh!important;padding:24px 26px 16px!important;}
+      body.exam-focus.exam-nav-collapsed #questionScreen{max-width:1180px!important;}
+      body.exam-focus .exam-focus-toggle{display:flex!important;}
+      .exam-qbtn{min-height:34px;border-radius:10px;border:1px solid rgba(148,163,184,.24);background:#172033;color:#cbd5e1;font-size:11px;font-weight:900;}
+      .exam-qbtn:hover{background:#1e293b;color:white;}
+      .exam-qbtn.active{background:#2563eb!important;color:white;border-color:#60a5fa;box-shadow:0 0 0 2px rgba(59,130,246,.25);}
+      .exam-qbtn.answered{background:#065f46;color:#d1fae5;border-color:#10b981;}
+      .exam-qbtn.flagged{outline:2px solid #f59e0b;}
+      .exam-reminder{display:none;margin-top:10px;padding:8px 10px;border-radius:12px;font-size:11px;font-weight:900;line-height:1.25;}
+      .exam-reminder.show{display:flex;gap:6px;align-items:flex-start;}
+      @media(max-width:900px){body.exam-focus #examInlineNav{width:164px!important;left:8px!important;top:8px!important;bottom:8px!important;}body.exam-focus #view-training>section{margin-left:180px!important;width:calc(100vw - 180px)!important;}body.exam-focus #questionScreen{max-width:calc(100vw - 190px)!important;padding:18px 12px!important;}.exam-qbtn{min-height:30px;font-size:10px;}}
+    `;
+    document.head.appendChild(css);
+  }
+
+  function forceTrainingLayout(){
+    installCss();
+    const view = $('view-training');
+    if(view && !view.classList.contains('hidden')){
+      view.style.display = 'flex';
+      view.classList.add('flex');
+      view.classList.remove('block');
+    }
+    const sec = view?.querySelector('section');
+    if(sec){ sec.style.display = 'flex'; sec.style.flex = '1 1 auto'; sec.style.minWidth = '0'; }
+    const screen = $('questionScreen');
+    if(screen){ screen.style.display = 'flex'; screen.style.minWidth = '0'; }
+    const overlay = $('notStartedOverlay');
+    const st = state();
+    if(overlay && st.status === 'active') overlay.classList.add('hidden');
+  }
+
+  function showView(tabId){
+    installCss();
+    const ids = ['roadmap','dashboard','training','review','records'];
+    ids.forEach(id => {
+      const view = $(`view-${id}`);
+      if(!view) return;
+      const active = id === tabId;
+      view.classList.toggle('hidden', !active);
+      view.classList.toggle('flex', active && id === 'training');
+      view.style.display = active ? (id === 'training' ? 'flex' : '') : 'none';
+      const top = $(`tab-${id}`), side = $(`shell-tab-${id}`);
+      [top, side].forEach(btn => btn && btn.classList.toggle('active', active));
+    });
+    if(tabId === 'dashboard') setTimeout(() => { try{ if(typeof initDashboard === 'function') initDashboard(); }catch(_){} }, 50);
+    if(tabId === 'training') { forceTrainingLayout(); setTimeout(() => { try{ if(state().session?.length) window.renderQuestion?.(); }catch(_){} forceTrainingLayout(); }, 60); }
+    if(tabId === 'records') setTimeout(() => { try{ window.renderRecordsDashboard?.(); window.pollExamRecordsNow?.().catch(()=>{}); }catch(_){} }, 80);
+  }
+  window.switchTab = showView; window.shellSwitch = showView; try{ switchTab = showView; shellSwitch = showView; }catch(_){}
+  window.launchApp = function(){ const g=$('entranceGateway'); if(g){ g.classList.add('hidden'); g.style.display='none'; g.style.opacity='0'; } document.body.classList.add('app-pro-shell'); showView('dashboard'); };
+  try{ launchApp = window.launchApp; }catch(_){}
+
+  function answerLetter(q){ return String.fromCharCode(65 + ((q?.answer || [0])[0] || 0)); }
+  function fallbackRenderQuestion(){
+    const st = state(); const U = ui();
+    const q = st.session?.[st.currentIdx || 0];
+    if(!q) return false;
+    const meta = $('metaTags');
+    if(meta) meta.innerHTML = `<span class="bg-slate-850 text-white px-3 py-1.5 rounded-lg text-sm font-black tracking-widest shadow-sm flex items-center gap-2">Question ${esc(q.sessionNum || ((st.currentIdx||0)+1))}<span class="text-[10px] text-slate-400 bg-slate-700 px-1.5 py-0.5 rounded font-medium">(Ref: PDF-${esc(q.orig)})</span></span><span class="bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-100 hidden sm:flex">${esc(q.mainCategory||'')} → ${esc(q.subCategory||q.topic||'')}</span>`;
+    const qt = $('questionText'); if(qt) qt.innerHTML = q.prompt || '';
+    const visualBox = $('graphicPlaceholderArea');
+    if(visualBox){
+      if(q.visual && q.visual.src) visualBox.innerHTML = `<figure class="question-visual bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 mb-6 shadow-sm"><figcaption class="text-sm font-black text-slate-700 mb-3">${esc(q.visual.title||'Question visual')}</figcaption><img src="${q.visual.src}" alt="${esc(q.visual.title||'Question visual')}" class="max-h-[44vh] w-auto max-w-full mx-auto rounded-xl border border-slate-100 object-contain bg-white"></figure>`;
+      else visualBox.innerHTML = '';
+    }
+    const choices = $('choicesContainer');
+    if(choices){
+      const selected = st.userAnswers?.[st.currentIdx] || [];
+      choices.innerHTML = (q.choices || []).map((ch,i) => {
+        const picked = selected.includes(i), correct = (q.answer||[]).includes(i), review = st.status === 'review';
+        let cls = `choice-card group flex items-start gap-4 p-5 border-2 rounded-2xl bg-white border-slate-200 ${picked?'selected':''}`;
+        if(review && correct) cls += ' correct-review';
+        if(review && picked && !correct) cls += ' wrong-review';
+        return `<label class="${cls}"><input type="radio" name="qchoice" class="sr-only" value="${i}" ${picked?'checked':''} ${review?'disabled':''}><div class="custom-input flex-shrink-0 mt-1"></div><div class="flex-grow text-slate-700 font-semibold text-base sm:text-lg leading-snug flex items-start"><span class="mr-3 font-black text-brand-600 w-6 flex-shrink-0">${String.fromCharCode(65+i)}.</span><span>${ch}</span></div></label>`;
+      }).join('');
+      choices.querySelectorAll('input[name="qchoice"]').forEach(inp => inp.addEventListener('change', e => { if(st.status !== 'review'){ st.userAnswers[st.currentIdx] = [Number(e.target.value)]; renderQuestionSafe(); try{ window.renderSidebarList?.(); }catch(_){} } }));
+    }
+    const flag = $('flagBtn'); if(flag){ flag.onclick = () => { st.flagged[st.currentIdx] = !st.flagged[st.currentIdx]; renderQuestionSafe(); try{ window.renderSidebarList?.(); }catch(_){} }; }
+    const prev = $('prevBtn'); if(prev) prev.onclick = () => { if((st.currentIdx||0)>0) window.changeQuestion?.((st.currentIdx||0)-1); };
+    const next = $('nextBtn'); if(next) next.onclick = () => { if((st.currentIdx||0)<(st.session?.length||0)-1) window.changeQuestion?.((st.currentIdx||0)+1); };
+    const check = $('checkAnsBtn'); if(check) check.onclick = () => { const f=$('feedbackArea'), h=$('feedbackHeader'), b=$('feedbackBody'); if(f){ f.classList.remove('hidden'); f.classList.add('bg-brand-50','border-brand-200'); } if(h) h.innerHTML = '<i class="ph-fill ph-info"></i> Answer Key'; if(b) b.innerHTML = `<strong>Official Evaluation Key:</strong> Option ${answerLetter(q)}`; };
+    updateExamHud(); forceTrainingLayout(); return true;
+  }
+  const originalRenderQuestion = window.renderQuestion || (typeof renderQuestion === 'function' ? renderQuestion : null);
+  function renderQuestionSafe(){
+    forceTrainingLayout();
+    try { if(typeof originalRenderQuestion === 'function') originalRenderQuestion(); }
+    catch(e){ console.warn('Original renderQuestion failed; using fallback renderer.', e); fallbackRenderQuestion(); }
+    const hasText = !!(($('questionText')?.textContent || '').trim());
+    if(!hasText) fallbackRenderQuestion();
+    updateExamHud(); forceTrainingLayout();
+  }
+  window.renderQuestion = renderQuestionSafe; try{ renderQuestion = renderQuestionSafe; }catch(_){}
+
+  function updateExamHud(){
+    const st = state(); const total = st.session?.length || 0; const idx = st.currentIdx || 0;
+    const answered = Object.keys(st.userAnswers || {}).filter(k => st.userAnswers[k]?.length).length;
+    const ansPct = total ? Math.round(answered/total*100) : 0;
+    const cur = $('examNavCurrent'); if(cur) cur.textContent = `${total ? idx+1 : 0}/${total}`;
+    const a = $('examNavAnswered'); if(a) a.textContent = `${answered}/${total}`;
+    const bar = $('examNavProgressBar'); if(bar) bar.style.width = `${ansPct}%`;
+    const pa = $('progressAnswered'); if(pa) pa.textContent = answered;
+    const pt = $('progressTotal'); if(pt) pt.textContent = total;
+    const pad = $('progressAnsweredDetail'); if(pad) pad.textContent = answered;
+    const pu = $('progressUnanswered'); if(pu) pu.textContent = Math.max(0,total-answered);
+    const pbar = $('progressBar'); if(pbar) pbar.style.width = `${ansPct}%`;
+    const grid = $('examNavGrid');
+    if(grid){
+      const filter = norm($('examMiniSearch')?.value || '');
+      const rows = (st.session || []).map((q,i)=>({q,i})).filter(({q}) => !filter || norm(`${q.sessionNum} ${q.orig} ${q.prompt} ${(q.choices||[]).join(' ')} ${q.subCategory} ${q.mainCategory}`).includes(filter));
+      grid.innerHTML = rows.map(({q,i}) => `<button class="exam-qbtn ${i===idx?'active':''} ${st.userAnswers?.[i]?.length?'answered':''} ${st.flagged?.[i]?'flagged':''}" onclick="changeQuestion(${i})" title="Q${q.sessionNum} / Ref ${q.orig}">${q.sessionNum}</button>`).join('') || '<div class="col-span-3 text-xs font-bold text-slate-400 p-3">No matching questions.</div>';
+    }
+    const seconds = Number(st.timeLeft || 0), totalSec = Number(st.totalTimeSeconds || 0);
+    const m = Math.floor(seconds/60), s = seconds%60, timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    ['timerDisplay','timerDisplayMobile','examNavTimer'].forEach(id => { const el=$(id); if(el) el.textContent = timeStr; });
+    const elapsed = totalSec ? Math.max(0, totalSec - seconds) : 0;
+    const timePctVal = totalSec ? Math.min(100, Math.round(elapsed/totalSec*100)) : 0;
+    const tp=$('examNavTimePct'); if(tp) tp.textContent = `${timePctVal}%`;
+    const tb=$('examNavTimeBar'); if(tb) tb.style.width = `${timePctVal}%`;
+    const reminder = $('examReminder');
+    if(reminder){
+      const show = (($('modeSel')?.value || '') === 'exam' || document.body.classList.contains('shared-exam-landing') === false) && seconds > 0 && seconds <= 600;
+      reminder.classList.toggle('show', show);
+      if(seconds <= 60) reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Final minute. Submit now if you are finished.';
+      else if(seconds <= 300) reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Last 5 minutes. Prioritize open questions.';
+      else reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Last 10 minutes. Review flagged and unanswered questions.';
+    }
+  }
+  window.updateExamHud = updateExamHud;
+
+  const oldUpdateTimer = window.updateTimerDisplay || (typeof updateTimerDisplay === 'function' ? updateTimerDisplay : null);
+  window.updateTimerDisplay = function(){ try{ if(typeof oldUpdateTimer === 'function') oldUpdateTimer(); }catch(_){} updateExamHud(); };
+  try{ updateTimerDisplay = window.updateTimerDisplay; }catch(_){}
+  const oldUpdateSession = window.updateSessionProgress || (typeof updateSessionProgress === 'function' ? updateSessionProgress : null);
+  window.updateSessionProgress = function(){ try{ if(typeof oldUpdateSession === 'function') oldUpdateSession(); }catch(_){} updateExamHud(); };
+  try{ updateSessionProgress = window.updateSessionProgress; }catch(_){}
+
+  const oldRenderSidebar = window.renderSidebarList || (typeof renderSidebarList === 'function' ? renderSidebarList : null);
+  window.renderSidebarList = function(){ try{ if(typeof oldRenderSidebar === 'function') oldRenderSidebar(); }catch(e){ console.warn('Sidebar render failed', e); } updateExamHud(); forceTrainingLayout(); };
+  try{ renderSidebarList = window.renderSidebarList; }catch(_){}
+  const oldChangeQuestion = window.changeQuestion || (typeof changeQuestion === 'function' ? changeQuestion : null);
+  window.changeQuestion = function(i){ const st=state(); st.currentIdx = Math.max(0, Math.min(Number(i)||0, (st.session?.length||1)-1)); try{ if(typeof oldChangeQuestion === 'function') oldChangeQuestion(st.currentIdx); else renderQuestionSafe(); }catch(e){ console.warn('changeQuestion fallback', e); renderQuestionSafe(); } updateExamHud(); forceTrainingLayout(); };
+  try{ changeQuestion = window.changeQuestion; }catch(_){}
+
+  window.enterExamFocusMode = function(){
+    installCss(); forceTrainingLayout();
+    document.body.classList.add('exam-focus');
+    document.body.classList.remove('exam-nav-collapsed');
+    const txt=$('examFocusBtnText'); if(txt) txt.textContent='HIDE NAVIGATOR';
+    updateExamHud(); renderQuestionSafe();
+    try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{}); }catch(_){}
+  };
+  try{ enterExamFocusMode = window.enterExamFocusMode; }catch(_){}
+  window.exitExamFocusMode = function(exitFull=true){ document.body.classList.remove('exam-focus','exam-nav-collapsed','show-question-nav'); try{ if(exitFull && document.fullscreenElement) document.exitFullscreen?.().catch(()=>{}); }catch(_){} forceTrainingLayout(); };
+  try{ exitExamFocusMode = window.exitExamFocusMode; }catch(_){}
+  window.toggleExamFocusNav = function(){ document.body.classList.toggle('exam-nav-collapsed'); const txt=$('examFocusBtnText'); if(txt) txt.textContent = document.body.classList.contains('exam-nav-collapsed') ? 'OPEN NAVIGATOR' : 'HIDE NAVIGATOR'; updateExamHud(); };
+  try{ toggleExamFocusNav = window.toggleExamFocusNav; }catch(_){}
+
+  const oldStartCore = window.startSessionCore || (typeof startSessionCore === 'function' ? startSessionCore : null);
+  if(oldStartCore){ window.startSessionCore = function(){ oldStartCore(); setTimeout(() => { showView('training'); renderQuestionSafe(); if(($('modeSel')?.value || '') === 'exam') window.enterExamFocusMode(); }, 80); }; try{ startSessionCore = window.startSessionCore; }catch(_){} }
+  const oldRows = window.startSessionFromQuestionRows || (typeof startSessionFromQuestionRows === 'function' ? startSessionFromQuestionRows : null);
+  if(oldRows){ window.startSessionFromQuestionRows = function(rows, opts={}){ oldRows(rows, opts); setTimeout(() => { showView('training'); renderQuestionSafe(); window.enterExamFocusMode(); }, 80); }; try{ startSessionFromQuestionRows = window.startSessionFromQuestionRows; }catch(_){} }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    installCss();
+    $('examMiniSearch')?.addEventListener('input', updateExamHud);
+    document.querySelectorAll('#shell-tab-training,[onclick*="training"]').forEach(el => el.addEventListener('click', () => setTimeout(forceTrainingLayout, 50), true));
+  });
+  window.addEventListener('load', () => { installCss(); forceTrainingLayout(); updateExamHud(); });
+})();
+</script>
 </body>
 </html>
