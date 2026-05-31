@@ -7231,5 +7231,249 @@ d) Discuss the well control plan and reinforce individual crew duties
   window.addEventListener('load', () => { bindNavigation(); if(!new URLSearchParams(location.search || '').get('examId')) renderDashboardFull(); });
 })();
 </script>
+<script>
+/* =========================================================
+   V26 FINAL SHARED-LINK FIX
+   Purpose: GitHub Pages + Cloud Firestore trainee links must never open blank.
+   - Always normalizes GitHub Pages project URL with trailing slash.
+   - Saves exam package to Cloud Firestore using SDK when available, REST fallback otherwise.
+   - Generated link contains ?examId=... and a #exam=... backup payload.
+   - Shared exam page shows a cover/loading/error page immediately, never a blank page.
+   ========================================================= */
+(function(){
+  'use strict';
+  const CFG = {
+    apiKey: 'AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0',
+    authDomain: 'iadc-well-sharp-prep-record.firebaseapp.com',
+    databaseURL: 'https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com',
+    projectId: 'iadc-well-sharp-prep-record',
+    storageBucket: 'iadc-well-sharp-prep-record.firebasestorage.app',
+    messagingSenderId: '697272682326',
+    appId: '1:697272682326:web:d95a0b7a0aa0d66ab978f7'
+  };
+  window.IADC_FIREBASE_CONFIG_FINAL = CFG;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function safeAlert(msg){ try { alert(msg); } catch(_) { console.warn(msg); } }
+  function status(msg, ok=true){
+    try { if(typeof qmStatus === 'function') qmStatus(msg, ok); } catch(_) {}
+    const el = $('firebaseShareStatus');
+    if(el){ el.className = ok ? 'qm-firebase-badge qm-firebase-ok' : 'qm-firebase-badge qm-firebase-warn'; el.innerHTML = `<i class="ph-bold ${ok?'ph-cloud-check':'ph-cloud-warning'}"></i> ${esc(msg)}`; }
+  }
+  function normalizeHostedUrl(raw){
+    raw = String(raw || '').trim();
+    if(!raw || raw.startsWith('file:')) raw = 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
+    if(!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+    let u;
+    try { u = new URL(raw, window.location.href); } catch(e) { return 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/'; }
+    u.search = ''; u.hash = '';
+    // GitHub project pages MUST keep the repository folder and MUST end with / before ?examId.
+    if(/github\.io$/i.test(u.hostname)){
+      if(!u.pathname || u.pathname === '/') u.pathname = '/IADC-Well-Sharp-Exam/';
+      if(!/\.[a-z0-9]{2,6}$/i.test(u.pathname) && !u.pathname.endsWith('/')) u.pathname += '/';
+    } else if(!/\.[a-z0-9]{2,6}$/i.test(u.pathname) && !u.pathname.endsWith('/')) {
+      u.pathname += '/';
+    }
+    return u.toString();
+  }
+  window.normalizeHostedUrlForIADC = normalizeHostedUrl;
+  const previousGetUrl = window.getPlatformPublicUrl;
+  window.getPlatformPublicUrl = function(){
+    const input = $('shareHostedUrl');
+    const typed = input && input.value ? input.value : '';
+    const stored = localStorage.getItem('iwcf_hosted_platform_url') || '';
+    const current = (location.protocol === 'http:' || location.protocol === 'https:') ? location.href : '';
+    const url = normalizeHostedUrl(typed || stored || current);
+    if(input) input.value = url;
+    localStorage.setItem('iwcf_hosted_platform_url', url);
+    return url;
+  };
+  function encodePayload(obj){
+    const json = JSON.stringify(obj);
+    return btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function decodePayload(s){
+    s = String(s || '').replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length % 4) s += '=';
+    return JSON.parse(decodeURIComponent(escape(atob(s))));
+  }
+  window.IADC_decodeSharedExamPayload = decodePayload;
+  function toFirestoreValue(v){
+    if(v === null || v === undefined) return { nullValue: null };
+    if(Array.isArray(v)) return { arrayValue: { values: v.map(toFirestoreValue) } };
+    if(typeof v === 'boolean') return { booleanValue: v };
+    if(typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+    if(typeof v === 'object') return { mapValue: { fields: toFirestoreFields(v) } };
+    return { stringValue: String(v) };
+  }
+  function toFirestoreFields(obj){
+    const fields = {};
+    Object.entries(obj || {}).forEach(([k,v]) => { fields[k] = toFirestoreValue(v); });
+    return fields;
+  }
+  function fromFirestoreValue(v){
+    if(!v || typeof v !== 'object') return undefined;
+    if('stringValue' in v) return v.stringValue;
+    if('integerValue' in v) return Number(v.integerValue);
+    if('doubleValue' in v) return Number(v.doubleValue);
+    if('booleanValue' in v) return !!v.booleanValue;
+    if('timestampValue' in v) return v.timestampValue;
+    if('nullValue' in v) return null;
+    if('arrayValue' in v) return (v.arrayValue.values || []).map(fromFirestoreValue);
+    if('mapValue' in v) return fromFirestoreFields(v.mapValue.fields || {});
+    return undefined;
+  }
+  function fromFirestoreFields(fields){
+    const out = {};
+    Object.entries(fields || {}).forEach(([k,v]) => { out[k] = fromFirestoreValue(v); });
+    return out;
+  }
+  async function restSaveExamPackage(payload){
+    const url = `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents/examPackages/${encodeURIComponent(payload.sessionId)}?key=${encodeURIComponent(CFG.apiKey)}`;
+    const res = await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fields: toFirestoreFields(payload) }) });
+    if(!res.ok){ const txt = await res.text().catch(()=>res.statusText); throw new Error(`Firestore REST save failed (${res.status}): ${txt.slice(0,300)}`); }
+    return true;
+  }
+  async function restLoadExamPackage(examId){
+    const url = `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents/examPackages/${encodeURIComponent(examId)}?key=${encodeURIComponent(CFG.apiKey)}`;
+    const res = await fetch(url, { method:'GET' });
+    if(!res.ok){ const txt = await res.text().catch(()=>res.statusText); throw new Error(`Firestore REST read failed (${res.status}): ${txt.slice(0,300)}`); }
+    const doc = await res.json();
+    return fromFirestoreFields(doc.fields || {});
+  }
+  const sdkSave = window.saveExamPackageToFirestore;
+  window.saveExamPackageToFirestore = async function(payload){
+    try { if(typeof sdkSave === 'function') return await sdkSave(payload); }
+    catch(e){ console.warn('SDK Firestore save failed; trying REST fallback:', e); }
+    return restSaveExamPackage(payload);
+  };
+  const sdkLoad = window.loadExamPackageFromFirestore;
+  window.loadExamPackageFromFirestore = async function(examId){
+    try { if(typeof sdkLoad === 'function') return await sdkLoad(examId); }
+    catch(e){ console.warn('SDK Firestore load failed; trying REST fallback:', e); }
+    return restLoadExamPackage(examId);
+  };
+  function selectedCustomQuestions(rows){
+    return (rows || []).filter(q => !(Number(q.orig) >= 1 && Number(q.orig) <= 402)).map(q => {
+      const copy = {...q};
+      if(copy.visual && String(copy.visual.src || '').length > 150000) copy.visual = {...copy.visual, src:''};
+      return copy;
+    });
+  }
+  function buildLink(base, sessionId, payload){
+    const main = `${base}${base.includes('?') ? '&' : '?'}examId=${encodeURIComponent(sessionId)}`;
+    const backup = encodePayload(payload);
+    // Keep backup in the same link when safe. Built-in 402-question links are normally small because only refs are included.
+    return (main.length + backup.length + 6 < 24000) ? `${main}#exam=${backup}` : main;
+  }
+  window.packageQuestionsForLink = async function(rows, sourceLabel){
+    rows = Array.isArray(rows) ? rows : [];
+    if(!rows.length){ safeAlert('No questions selected. Select one or more categories/questions first.'); return ''; }
+    const title = $('shareExamTitle')?.value?.trim() || 'WellSharp Practice Exam';
+    const groupName = ($('shareGroupName')?.value || 'Ungrouped').trim() || 'Ungrouped';
+    const minutes = Math.max(1, parseInt($('shareExamMinutes')?.value || $('minutesInput')?.value || '60', 10));
+    const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+    const payload = {
+      type:'iwcf-shared-exam', version:26, createdAt:new Date().toISOString(), sessionId,
+      title, groupName, minutes, mode:'exam', shuffle:!!$('shareShuffle')?.checked,
+      sourceLabel: sourceLabel || 'Selected questions', refs: rows.map(q => q.orig),
+      customQuestions: selectedCustomQuestions(rows), firestoreProject: CFG.projectId
+    };
+    const base = window.getPlatformPublicUrl();
+    const link = buildLink(base, sessionId, payload);
+    const out = $('shareLinkOutput'), stats = $('shareLinkStats');
+    if(out){ out.textContent = 'Saving exam package to Cloud Firestore before generating trainee link...'; out.style.whiteSpace='pre-wrap'; out.style.wordBreak='break-all'; }
+    if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • saving...`;
+    try { if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); } catch(_) {}
+    try { if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(_) {}
+    try {
+      await window.saveExamPackageToFirestore(payload);
+      window.GENERATED_EXAM_LINK = link; window.GENERATED_EXAM_PACKAGE = payload;
+      try { GENERATED_EXAM_LINK = link; GENERATED_EXAM_PACKAGE = payload; } catch(_) {}
+      if(out) out.textContent = link;
+      if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • Firestore session ${sessionId}`;
+      status('Firestore saved. Trainee link is ready.', true);
+      return link;
+    } catch(e) {
+      // Still give a backup hash-only link that can open the exam cover page from GitHub if Firestore is temporarily blocked.
+      const fallback = `${base}#exam=${encodePayload(payload)}`;
+      window.GENERATED_EXAM_LINK = fallback; window.GENERATED_EXAM_PACKAGE = payload;
+      if(out) out.textContent = `Firestore save failed, but backup self-contained link was created. Fix Firestore rules before live records.\n\n${fallback}\n\nError: ${e.message || e}`;
+      if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • backup link only`;
+      status('Firestore save failed. Backup link generated; records may not sync.', false);
+      return fallback;
+    }
+  };
+  window.copyGeneratedExamLink = function(){
+    const txt = (window.GENERATED_EXAM_LINK || $('shareLinkOutput')?.textContent || '').trim();
+    const link = (txt.match(/https?:\/\/\S+/) || [txt])[0];
+    if(!/^https?:\/\//i.test(link)) return safeAlert('Generate a working trainee link first.');
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>status('Link copied.', true)).catch(()=>prompt('Copy trainee link:', link));
+    else prompt('Copy trainee link:', link);
+  };
+  window.openGeneratedExamLink = function(){
+    const txt = (window.GENERATED_EXAM_LINK || $('shareLinkOutput')?.textContent || '').trim();
+    const link = (txt.match(/https?:\/\/\S+/) || [txt])[0];
+    if(!/^https?:\/\//i.test(link)) return safeAlert('Generate a working trainee link first.');
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+  function showLandingMessage(message, isError=false){
+    document.body.classList.add('shared-exam-landing');
+    $('entranceGateway')?.classList.add('hidden');
+    const landing = $('sharedExamLanding');
+    if(landing) landing.classList.remove('hidden');
+    const err = $('sharedExamError');
+    if(err){ err.textContent = message; err.classList.remove('hidden'); err.style.background = isError ? '#fee2e2' : '#eff6ff'; err.style.color = isError ? '#7f1d1d' : '#1e3a8a'; }
+  }
+  function tryHashPayload(){
+    const m = String(location.hash || '').match(/#exam=([^&]+)/);
+    if(!m) return null;
+    try { const payload = decodePayload(m[1]); return payload && payload.type === 'iwcf-shared-exam' ? payload : null; }
+    catch(e){ console.warn('Hash payload decode failed:', e); return null; }
+  }
+  async function callStartSharedExam(payload){
+    showLandingMessage('Preparing trainee cover page...');
+    const start = Date.now();
+    while(typeof window.startSharedExamFromPayload !== 'function'){
+      if(Date.now() - start > 12000) throw new Error('The platform exam loader did not initialize. Upload this v26 file as index.html and hard refresh GitHub Pages.');
+      await new Promise(r => setTimeout(r, 120));
+    }
+    await window.startSharedExamFromPayload(payload);
+  }
+  window.detectSharedExamLink = async function(){
+    const examId = new URLSearchParams(location.search || '').get('examId');
+    const hashPayload = tryHashPayload();
+    if(!examId && !hashPayload) return false;
+    showLandingMessage(examId ? 'Loading exam package from Cloud Firestore...' : 'Loading exam package from backup link...');
+    try {
+      let payload = hashPayload;
+      if(examId){
+        try { payload = await window.loadExamPackageFromFirestore(examId); }
+        catch(e){
+          if(hashPayload) { console.warn('Firestore load failed; using backup hash payload:', e); payload = hashPayload; }
+          else throw e;
+        }
+      }
+      if(!payload || payload.type !== 'iwcf-shared-exam') throw new Error('Invalid or empty exam package.');
+      await callStartSharedExam(payload);
+      return true;
+    } catch(e) {
+      showLandingMessage('Unable to open this exam link. Most likely causes: the old index.html is still cached on GitHub Pages, the link was generated by an old version, or Firestore rules are not published. Error: ' + (e.message || e), true);
+      console.error(e);
+      return false;
+    }
+  };
+  function bootV26(){
+    const shareUrl = $('shareHostedUrl');
+    if(shareUrl) shareUrl.value = window.getPlatformPublicUrl();
+    if(new URLSearchParams(location.search || '').get('examId') || String(location.hash || '').startsWith('#exam=')){
+      window.detectSharedExamLink().catch(e => showLandingMessage('Exam link startup error: ' + (e.message || e), true));
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootV26); else bootV26();
+  window.addEventListener('load', bootV26, { once:true });
+})();
+</script>
+
 </body>
 </html>
