@@ -7772,5 +7772,275 @@ d) Discuss the well control plan and reinforce individual crew duties
 })();
 </script>
 
+<script>
+/* ==========================================================================
+   V21 RTDB-FIRST SHARED EXAM + RECORDS FIX
+   - Works with GitHub Pages hosting + Firebase Realtime Database backend.
+   - Always generates a trainee link with an embedded backup package (#exam=...).
+   - Saves/loads examPackages and examRecords to Realtime Database REST.
+   - Keeps Firestore-compatible function names so older platform buttons keep working.
+   ========================================================================== */
+(function(){
+  const CFG = {
+    apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
+    authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
+    databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
+    projectId: "iadc-well-sharp-prep-record",
+    storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
+    messagingSenderId: "697272682326",
+    appId: "1:697272682326:web:d95a0b7a0aa0d66ab978f7"
+  };
+  window.IADC_FIREBASE_CONFIG = CFG;
+  try { if(window.IADC_FIREBASE_CONFIG_V9) Object.assign(window.IADC_FIREBASE_CONFIG_V9, CFG); } catch(_) {}
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+  function status(msg, ok=true){
+    try { if(typeof qmStatus === 'function') qmStatus(msg, ok); } catch(_) { console.log(msg); }
+    const badge = $('firebaseShareStatus');
+    if(badge && msg){
+      badge.className = 'qm-firebase-badge ' + (ok ? 'qm-firebase-ok' : 'qm-firebase-warn');
+      badge.innerHTML = `<i class="ph-bold ${ok ? 'ph-cloud-check' : 'ph-cloud-warning'}"></i> ${esc(msg)}`;
+    }
+  }
+  function normalizePath(p){ return String(p||'').replace(/^\/+|\/+$/g,'').split('/').map(encodeURIComponent).join('/'); }
+  function rtdbUrl(path){ return `${CFG.databaseURL.replace(/\/$/,'')}/${normalizePath(path)}.json`; }
+  async function rtdbPut(path, value){
+    const res = await fetch(rtdbUrl(path), { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(value) });
+    if(!res.ok) throw new Error(`Realtime Database write failed (${res.status}). Check Realtime Database rules.`);
+    return await res.json().catch(()=>value);
+  }
+  async function rtdbGet(path){
+    const res = await fetch(rtdbUrl(path), { method:'GET' });
+    if(!res.ok) throw new Error(`Realtime Database read failed (${res.status}). Check Realtime Database rules.`);
+    return await res.json();
+  }
+  function makeKey(s){ return String(s||'record').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,180) || ('K_'+Date.now()); }
+  function recordKey(record){
+    return makeKey(`${record.sessionId || 'SESSION'}_${record.trainee?.email || record.trainee?.employeeId || record.trainee?.name || 'candidate'}_${record.status || 'record'}`);
+  }
+  function encodePayload(payload){
+    try { if(typeof base64UrlEncode === 'function') return base64UrlEncode(payload); } catch(_) {}
+    const json = JSON.stringify(payload);
+    return btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function decodePayload(encoded){
+    try { if(typeof base64UrlDecode === 'function') return base64UrlDecode(encoded); } catch(_) {}
+    const padded = String(encoded||'').replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - String(encoded||'').length % 4) % 4);
+    return JSON.parse(decodeURIComponent(escape(atob(padded))));
+  }
+  function cleanHostedBase(raw){
+    raw = String(raw || '').trim();
+    try {
+      const u = new URL(raw || location.href, location.href);
+      if(!/^https?:$/.test(u.protocol)) throw new Error('not hosted');
+      u.search = ''; u.hash = '';
+      // Keep GitHub Pages repo path. Ensure a trailing slash if URL points to a directory.
+      let s = u.toString();
+      if(!/\.html?$/i.test(u.pathname) && !s.endsWith('/')) s += '/';
+      return s;
+    } catch(e) {
+      return 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
+    }
+  }
+  window.getPlatformPublicUrl = function(){
+    const input = $('shareHostedUrl');
+    const isHosted = /^https?:$/i.test(location.protocol);
+    const current = isHosted ? cleanHostedBase(location.href) : '';
+    let typed = input?.value?.trim() || localStorage.getItem('iwcf_hosted_platform_url') || current || 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
+    if(current && /github\.io/i.test(location.hostname) && (!typed || /web\.app|firebaseapp/i.test(typed))) typed = current;
+    const url = cleanHostedBase(typed);
+    if(input) input.value = url;
+    try { localStorage.setItem('iwcf_hosted_platform_url', url); } catch(_) {}
+    return url;
+  };
+
+  // Keep old Firestore names, but make them work with Realtime Database first.
+  window.saveExamPackageToFirestore = async function(payload){
+    if(!payload || !payload.sessionId) throw new Error('Invalid exam package.');
+    payload.backend = 'rtdb';
+    payload.savedAt = new Date().toISOString();
+    await rtdbPut(`examPackages/${payload.sessionId}`, payload);
+    return true;
+  };
+  window.loadExamPackageFromFirestore = async function(examId){
+    if(!examId) throw new Error('Missing examId.');
+    const payload = await rtdbGet(`examPackages/${examId}`);
+    if(!payload || payload === null) throw new Error(`Exam package ${examId} was not found in Realtime Database. Regenerate the link or check rules.`);
+    return payload;
+  };
+  window.saveRecordToFirestore = async function(record){
+    if(!record || !record.sessionId) return false;
+    record.backend = 'rtdb';
+    record.savedAt = new Date().toISOString();
+    await rtdbPut(`examRecords/${recordKey(record)}`, record);
+    return true;
+  };
+  window.pushRecordToEndpoint = async function(record){
+    if(record) {
+      try { await window.saveRecordToFirestore(record); }
+      catch(e) { console.warn('Realtime Database record save failed:', e); }
+    }
+    const endpoint = (window.APP_STATE?.sharedExam?.resultEndpoint) || localStorage.getItem('iwcf_result_endpoint') || '';
+    if(endpoint && record){
+      try { await fetch(endpoint, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({type:'iwcf-exam-record', record}), keepalive:true, mode:'cors' }); }
+      catch(e){ console.warn('External record endpoint failed:', e); }
+    }
+  };
+  async function pullRecordsFromRealtimeDatabase(){
+    const data = await rtdbGet('examRecords');
+    const records = data && typeof data === 'object' ? Object.values(data).filter(x => x && typeof x === 'object') : [];
+    try {
+      if(typeof getExamRecords === 'function' && typeof setExamRecords === 'function') {
+        const local = getExamRecords();
+        const map = new Map();
+        [...records, ...local].forEach(r => {
+          const k = `${r.sessionId||''}|${r.trainee?.email||''}|${r.trainee?.name||''}|${r.status||''}`;
+          map.set(k, r);
+        });
+        setExamRecords(Array.from(map.values()).sort((a,b)=>String(b.submittedAt||b.savedAt||'').localeCompare(String(a.submittedAt||a.savedAt||''))));
+      }
+    } catch(e) { console.warn('Local record merge failed:', e); }
+    return records;
+  }
+  window.startFirestoreRecordsSync = async function(){
+    try {
+      await pullRecordsFromRealtimeDatabase();
+      status('Realtime Database records synced.', true);
+      try { if(typeof renderInstructorRecords === 'function') renderInstructorRecords(); } catch(_) {}
+      try { if(typeof renderRecordsDashboard === 'function') renderRecordsDashboard(); } catch(_) {}
+      return true;
+    } catch(e){
+      status('Realtime Database sync failed: ' + (e.message || e), false);
+      return false;
+    }
+  };
+
+  function selectedStats(rows, minutes, groupName, sessionId){ return `${rows.length} questions • ${minutes} min • ${groupName} • RTDB session ${sessionId}`; }
+  window.packageQuestionsForLink = async function(rows, sourceLabel){
+    if(!Array.isArray(rows) || !rows.length) { alert('No questions selected for this shared exam. Select categories or filters first.'); return ''; }
+    const title = $('shareExamTitle')?.value?.trim() || 'WellSharp Practice Exam';
+    const groupName = (typeof normalizeGroupName === 'function') ? normalizeGroupName($('shareGroupName')?.value || 'Ungrouped') : (($('shareGroupName')?.value || '').trim() || 'Ungrouped');
+    const minutes = Math.max(1, parseInt($('shareExamMinutes')?.value || window.UI?.minutesInput?.value || '60', 10));
+    const refs = rows.map(q => q.orig);
+    const customQuestions = rows.filter(q => !(Number(q.orig) >= 1 && Number(q.orig) <= 402)).map(q => ({...q, visual: q.visual && String(q.visual.src||'').length > 250000 ? {...q.visual, src:''} : q.visual}));
+    const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+    const payload = { type:'iwcf-shared-exam', version:21, createdAt:new Date().toISOString(), sessionId, title, groupName, minutes, mode:'exam', shuffle: !!$('shareShuffle')?.checked, sourceLabel: sourceLabel || 'Instructor shared exam', refs, customQuestions, backend:'rtdb', databaseURL: CFG.databaseURL, firestoreProject: CFG.projectId };
+    const encoded = encodePayload(payload);
+    const base = window.getPlatformPublicUrl();
+    const sep = base.includes('?') ? '&' : '?';
+    // Always include backup payload. This is the key fix for blank pages when DB is not ready.
+    const fullLink = `${base}${sep}examId=${encodeURIComponent(sessionId)}#exam=${encoded}`;
+    window.GENERATED_EXAM_LINK = fullLink;
+    window.GENERATED_EXAM_PACKAGE = payload;
+    const out = $('shareLinkOutput'); if(out){ out.textContent = fullLink; out.style.whiteSpace='pre-wrap'; out.style.wordBreak='break-all'; }
+    const st = $('shareLinkStats'); if(st) st.textContent = selectedStats(rows, minutes, groupName, sessionId) + ' • Saving to Realtime Database...';
+    try { if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); } catch(e){ console.warn(e); }
+    try { if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(e){ console.warn(e); }
+    try {
+      await window.saveExamPackageToFirestore(payload);
+      if(st) st.textContent = selectedStats(rows, minutes, groupName, sessionId) + ' • Saved to Realtime Database + backup link';
+      status('Exam link ready and saved to Realtime Database.', true);
+    } catch(e){
+      if(st) st.textContent = selectedStats(rows, minutes, groupName, sessionId) + ' • Backup link active; DB save failed';
+      status('DB save failed, but backup link is still active: ' + (e.message || e), false);
+    }
+    return fullLink;
+  };
+
+  function showLandingMessage(message, isError){
+    try { $('entranceGateway')?.classList.add('hidden'); } catch(_) {}
+    try { document.body.classList.add('shared-exam-landing'); } catch(_) {}
+    try { $('sharedExamLanding')?.classList.remove('hidden'); } catch(_) {}
+    const err = $('sharedExamError');
+    if(err){
+      err.textContent = message || '';
+      err.classList.remove('hidden');
+      err.className = (isError ? 'mt-4 bg-red-50 border border-red-200 text-red-700' : 'mt-4 bg-blue-50 border border-blue-200 text-blue-700') + ' rounded-2xl p-3 text-sm font-bold';
+    }
+  }
+  function startPayload(payload){
+    if(!payload || payload.type !== 'iwcf-shared-exam') return showLandingMessage('Invalid exam link. Ask the instructor to regenerate it from the latest version.', true);
+    let attempts = 0;
+    const run = () => {
+      attempts++;
+      try {
+        if(typeof startSharedExamFromPayload !== 'function') {
+          if(attempts < 100) return setTimeout(run, 100);
+          throw new Error('Exam starter is not loaded.');
+        }
+        const err = $('sharedExamError'); if(err) err.classList.add('hidden');
+        startSharedExamFromPayload(payload);
+        setTimeout(()=>{ $('sharedStuName')?.focus(); }, 150);
+      } catch(e){
+        console.error('V21 shared exam start failed:', e);
+        if(attempts < 10) return setTimeout(run, 250);
+        showLandingMessage('Unable to prepare trainee cover page: ' + (e.message || e), true);
+      }
+    };
+    run();
+  }
+  window.detectSharedExamLink = async function(){
+    const params = new URLSearchParams(location.search || '');
+    const examId = params.get('examId');
+    let backup = null;
+    if(location.hash && location.hash.startsWith('#exam=')) {
+      try { backup = decodePayload(location.hash.slice(6)); } catch(e){ console.warn('Backup package decode failed:', e); }
+    }
+    if(!examId && !backup) return;
+    // Use backup first to avoid blank pages. DB is only a persistence/sync layer.
+    if(backup && backup.type === 'iwcf-shared-exam') {
+      showLandingMessage('Preparing trainee cover page...', false);
+      startPayload(backup);
+      return;
+    }
+    try {
+      showLandingMessage('Loading exam package from Realtime Database...', false);
+      const payload = await window.loadExamPackageFromFirestore(examId);
+      startPayload(payload);
+    } catch(e){
+      showLandingMessage('Unable to load exam package: ' + (e.message || e) + '. Regenerate the link from v21 and make sure it contains #exam backup data.', true);
+    }
+  };
+  function visibleLink(){
+    const txt = ($('shareLinkOutput')?.textContent || '').trim();
+    const m = txt.match(/https?:\/\/\S+/);
+    return m ? m[0] : (window.GENERATED_EXAM_LINK || '');
+  }
+  window.copyGeneratedExamLink = function(){
+    const link = visibleLink(); if(!link) return alert('Generate a link first.');
+    window.GENERATED_EXAM_LINK = link;
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>status('Trainee link copied.', true)).catch(()=>prompt('Copy trainee exam link:', link));
+    else prompt('Copy trainee exam link:', link);
+  };
+  window.openGeneratedExamLink = function(){
+    const link = visibleLink(); if(!link) return alert('Generate a link first.');
+    window.open(link, '_blank', 'noopener');
+  };
+  window.downloadGeneratedExamPackage = function(){
+    const pkg = window.GENERATED_EXAM_PACKAGE;
+    if(!pkg) return alert('Generate a link first.');
+    const data = JSON.stringify(pkg, null, 2);
+    if(typeof downloadTextFile === 'function') downloadTextFile(`${pkg.sessionId || 'exam_package'}.json`, data, 'application/json');
+    else {
+      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`${pkg.sessionId || 'exam_package'}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }
+  };
+  function init(){
+    const hosted = $('shareHostedUrl');
+    if(hosted){
+      const current = /^https?:$/i.test(location.protocol) ? cleanHostedBase(location.href) : '';
+      if(current && /github\.io/i.test(location.hostname)) hosted.value = current;
+      else if(!hosted.value) hosted.value = localStorage.getItem('iwcf_hosted_platform_url') || current || 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
+    }
+    if((location.search || '').includes('examId=') || (location.hash || '').startsWith('#exam=')) {
+      setTimeout(()=>{ try { window.detectSharedExamLink(); } catch(e){ showLandingMessage('Shared-link runtime error: ' + (e.message || e), true); } }, 120);
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  window.addEventListener('load', () => setTimeout(init, 600));
+})();
+</script>
+
 </body>
 </html>
