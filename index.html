@@ -1054,41 +1054,62 @@
 
 
 
-<!-- Shared Exam Trainee Landing: visible only when a shared #exam link is opened -->
-<div id="sharedExamLanding" class="fixed inset-0 z-[500] hidden overflow-y-auto p-4 sm:p-6 lg:p-8">
+<!-- Shared Exam Trainee Landing: visible only when a shared exam link is opened -->
+<div id="sharedExamLanding" class="fixed inset-0 z-[500] hidden overflow-y-auto p-3 sm:p-6 lg:p-8">
     <div class="min-h-full flex items-center justify-center">
-        <div class="shared-card rounded-[2rem] max-w-5xl w-full overflow-hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-5">
-                <div class="lg:col-span-2 bg-slate-950 text-white p-7 sm:p-9 flex flex-col justify-between gap-8">
+        <div class="shared-card rounded-[2rem] max-w-6xl w-full overflow-hidden">
+            <div class="grid grid-cols-1 xl:grid-cols-5">
+                <div class="xl:col-span-2 bg-slate-950 text-white p-6 sm:p-8 flex flex-col justify-between gap-6">
                     <div>
-                        <div class="inline-flex items-center gap-3 bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 px-4 py-2 rounded-full text-xs font-black tracking-widest uppercase mb-6">
-                            <i class="ph-bold ph-shield-check"></i> Secure trainee access
+                        <div class="inline-flex items-center gap-3 bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 px-4 py-2 rounded-full text-xs font-black tracking-widest uppercase mb-5">
+                            <i class="ph-bold ph-shield-check"></i> Secure trainee exam access
                         </div>
-                        <h1 class="text-3xl sm:text-4xl font-black leading-tight mb-3">WellSharp Exam Session</h1>
-                        <p class="text-slate-300 font-semibold leading-relaxed">Enter trainee details only. The platform menus are hidden for candidates; the exam starts directly after login.</p>
+                        <h1 class="text-3xl sm:text-4xl font-black leading-tight mb-3">WellSharp Exam Cover Page</h1>
+                        <p class="text-slate-300 font-semibold leading-relaxed">This link opens trainee access only. The instructor platform, answer key, question bank, and records tools are hidden.</p>
                     </div>
                     <div class="space-y-3 text-sm font-bold">
                         <div id="sharedExamTitleView" class="text-xl font-black text-white">Shared Exam</div>
                         <div id="sharedGroupBadge" class="shared-chip bg-slate-900 border-slate-700 text-slate-200"><i class="ph-bold ph-users-three"></i> Group: -</div>
                         <div id="sharedExamMeta" class="grid grid-cols-2 gap-3 pt-3"></div>
                     </div>
+                    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 text-xs text-slate-300 font-bold leading-relaxed">
+                        <div class="text-emerald-300 uppercase tracking-wider font-black mb-2">Before you start</div>
+                        Confirm your name and group. Once started, the timer runs continuously. Do not refresh, close, or change browser tabs unless instructed by the examiner.
+                    </div>
                 </div>
-                <div class="lg:col-span-3 p-7 sm:p-9">
+                <div class="xl:col-span-3 p-6 sm:p-8">
                     <h2 class="text-2xl font-black text-slate-900 mb-2">Trainee data entry</h2>
-                    <p class="text-sm font-semibold text-slate-500 mb-6">Your instructor will receive the record by group when the result collector endpoint is configured. Required fields are marked with *.</p>
+                    <p class="text-sm font-semibold text-slate-500 mb-5">Complete the cover page, read the rules, then start the exam. Required fields are marked with *.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label class="shared-label">Full name *</label><input id="sharedStuName" class="shared-field" autocomplete="name" placeholder="e.g. Ahmed Hassan"></div>
-                        <div><label class="shared-label">Email / ID *</label><input id="sharedStuEmail" class="shared-field" autocomplete="email" placeholder="e.g. ahmed@rig.com"></div>
-                        <div><label class="shared-label">Rig role / title</label><input id="sharedStuTitle" class="shared-field" placeholder="e.g. Driller, Toolpusher"></div>
+                        <div><label class="shared-label">Email / employee ID *</label><input id="sharedStuEmail" class="shared-field" autocomplete="email" placeholder="e.g. ahmed@rig.com / ID"></div>
+                        <div><label class="shared-label">Company</label><input id="sharedStuCompany" class="shared-field" placeholder="e.g. Khalda / Apache JV"></div>
+                        <div><label class="shared-label">Rig / unit / location</label><input id="sharedStuRig" class="shared-field" placeholder="e.g. Rig 604"></div>
+                        <div><label class="shared-label">Rig role / title</label><input id="sharedStuTitle" class="shared-field" placeholder="e.g. Driller, Toolpusher, Company Man"></div>
                         <div><label class="shared-label">Years experience</label><input id="sharedStuExp" type="number" min="0" class="shared-field" placeholder="e.g. 7"></div>
-                        <div class="md:col-span-2"><label class="shared-label">Assigned group</label><input id="sharedStuGroup" class="shared-field bg-slate-100" readonly value=""></div>
+                        <div><label class="shared-label">Mobile / contact</label><input id="sharedStuPhone" class="shared-field" placeholder="optional"></div>
+                        <div><label class="shared-label">Assigned group</label><input id="sharedStuGroup" class="shared-field bg-slate-100" readonly value=""></div>
+                    </div>
+                    <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div class="font-black text-slate-900 mb-2 flex items-center gap-2"><i class="ph-bold ph-clipboard-text"></i> Exam rules and declaration</div>
+                        <ul class="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed list-disc pl-5 space-y-1">
+                            <li>The exam is timed. Submit before the timer ends.</li>
+                            <li>Answer every question you can. Unanswered questions are recorded as open.</li>
+                            <li>No external assistance, screenshots, copying, or answer sharing unless the instructor explicitly allows it.</li>
+                            <li>The submitted record will include your personal data, selected answers, score, category gaps, time, group, and session ID.</li>
+                            <li>For stable results, keep the same browser window open until the final submission confirmation appears.</li>
+                        </ul>
+                        <label class="mt-3 flex items-start gap-3 text-sm font-black text-slate-700 cursor-pointer">
+                            <input id="sharedExamAgree" type="checkbox" class="mt-1 w-5 h-5 accent-blue-600">
+                            <span>I confirm that the data above is correct and I agree to follow the exam rules.</span>
+                        </label>
                     </div>
                     <div id="sharedExamError" class="hidden mt-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl p-3 text-sm font-bold"></div>
-                    <div class="mt-7 flex flex-col sm:flex-row gap-3">
-                        <button onclick="beginSharedExamFromLanding()" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl py-4 px-5 font-black text-base shadow-lg shadow-brand-600/20 flex items-center justify-center gap-2"><i class="ph-bold ph-play-circle"></i> Login & Start Exam</button>
+                    <div class="mt-6 flex flex-col sm:flex-row gap-3">
+                        <button onclick="beginSharedExamFromLanding()" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl py-4 px-5 font-black text-base shadow-lg shadow-brand-600/20 flex items-center justify-center gap-2"><i class="ph-bold ph-play-circle"></i> Start Exam</button>
                         <button onclick="downloadPendingExamPackage()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl py-4 px-5 font-black text-sm flex items-center justify-center gap-2"><i class="ph-bold ph-download-simple"></i> Backup Package</button>
                     </div>
-                    <p class="mt-4 text-xs text-slate-500 font-semibold leading-relaxed">Do not refresh the page during the exam. Submissions are saved locally first and posted to the instructor endpoint when available.</p>
+                    <p class="mt-4 text-xs text-slate-500 font-semibold leading-relaxed">If loading takes more than a few seconds, ask the instructor to regenerate the link from the latest platform version and confirm the GitHub page URL is correct.</p>
                 </div>
             </div>
         </div>
@@ -3717,6 +3738,7 @@ d) Discuss the well control plan and reinforce individual crew duties
     }
 
     let BANK = parseRawDatabase();
+    try { window.BANK = BANK; } catch(_) {}
 
     // UI Elements
     const UI = {
@@ -6039,12 +6061,20 @@ d) Discuss the well control plan and reinforce individual crew duties
         const email = document.getElementById('sharedStuEmail')?.value?.trim() || '';
         const title = document.getElementById('sharedStuTitle')?.value?.trim() || 'Rig Personnel';
         const exp = document.getElementById('sharedStuExp')?.value?.trim() || 'Not Provided';
+        const company = document.getElementById('sharedStuCompany')?.value?.trim() || '';
+        const rig = document.getElementById('sharedStuRig')?.value?.trim() || '';
+        const phone = document.getElementById('sharedStuPhone')?.value?.trim() || '';
         const group = normalizeGroupName(payload.groupName || document.getElementById('sharedStuGroup')?.value);
+        const agreed = document.getElementById('sharedExamAgree')?.checked;
         if(!name || !email) {
             if(err) { err.textContent = 'Please enter trainee full name and email/ID before starting the exam.'; err.classList.remove('hidden'); }
             return;
         }
-        APP_STATE.studentInfo = { name, email, title, experience: exp, group };
+        if(document.getElementById('sharedExamAgree') && !agreed) {
+            if(err) { err.textContent = 'Please confirm the exam rules declaration before starting.'; err.classList.remove('hidden'); }
+            return;
+        }
+        APP_STATE.studentInfo = { name, email, title, experience: exp, group, company, rig, phone };
         APP_STATE.sharedExam = { ...payload, groupName: group, startedAt: new Date().toISOString() };
         if(UI.modeSel) UI.modeSel.value = 'exam';
         if(UI.minutesInput) UI.minutesInput.value = payload.minutes || 60;
@@ -7423,7 +7453,7 @@ d) Discuss the well control plan and reinforce individual crew duties
     try { if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(e) { console.warn(e); }
     const saved = await savePackageSafe(payload);
     const badge = $('firebaseShareStatus');
-    if(saved.ok){ if(badge){ badge.className='qm-firebase-badge qm-firebase-ok'; badge.innerHTML='<i class="ph-bold ph-cloud-check"></i> Firestore saved'; } setGenerated(link, payload, `${rows.length} questions • ${minutes} min • ${groupName} • Session ${sessionId}`, `Trainee link ready. Use the visible link. Short Firestore link also available after save: ${shortLink}`); }
+    if(saved.ok){ if(badge){ badge.className='qm-firebase-badge qm-firebase-ok'; badge.innerHTML='<i class="ph-bold ph-cloud-check"></i> Firestore saved'; } setGenerated(shortLink, payload, `${rows.length} questions • ${minutes} min • ${groupName} • Session ${sessionId} • Firestore link`, `Trainee link ready. The visible link is the clean Firestore link. The Exam Package JSON button remains available for backup.`); }
     else { if(badge){ badge.className='qm-firebase-badge qm-firebase-warn'; badge.innerHTML=`<i class="ph-bold ph-cloud-warning"></i> Firestore save failed: ${esc(saved.error)}`; } setGenerated(link, payload, `${rows.length} questions • ${minutes} min • ${groupName} • Backup package link active`, 'Firestore save failed, but the visible link contains a backup exam package and should still open. Check Firestore rules for live records.', false); }
     return link;
   };
@@ -7627,114 +7657,118 @@ d) Discuss the well control plan and reinforce individual crew duties
 })();
 </script>
 
+
+
 <script>
 /* ===========================================================================
-   V19 RESTORE + NAVIGATION STABILITY PATCH
-   Base: v15 working dashboard/content. This patch only stabilizes launch/tabs
-   and forces dashboard category rendering when dashboard is opened.
+   V20 SHARED EXAM LINK FIX
+   Purpose: eliminate blank shared-exam pages on GitHub Pages by using the
+   embedded backup payload immediately when present, avoiding old waits on
+   window.BANK, and showing a professional trainee cover page/error panel.
    ========================================================================== */
 (function(){
-  const TAB_IDS = ['roadmap','dashboard','training','review','records'];
   const $ = (id) => document.getElementById(id);
-  function safe(fn, ...args){
+  function safeDecode(encoded){
     try {
-      if (typeof window[fn] === 'function') return window[fn](...args);
-      if (typeof globalThis[fn] === 'function') return globalThis[fn](...args);
-    } catch(e){ console.warn('V19 safe call failed:', fn, e); }
+      if(!encoded) return null;
+      if(typeof base64UrlDecode === 'function') return base64UrlDecode(encoded);
+      const padded = String(encoded).replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - String(encoded).length % 4) % 4);
+      return JSON.parse(decodeURIComponent(escape(atob(padded))));
+    } catch(e){ console.warn('V20 decode failed', e); return null; }
   }
-  function callLocalInitDashboard(){
-    try { if (typeof initDashboard === 'function') initDashboard(); } catch(e){ console.warn('V19 dashboard init warning:', e); }
-    try { if (typeof updateDashboardProgress === 'function') updateDashboardProgress(); } catch(e){}
-    try { if (typeof refreshQuestionManager === 'function') refreshQuestionManager(); } catch(e){}
-    try { if (typeof populateQuestionCategoryOptions === 'function') populateQuestionCategoryOptions(); } catch(e){}
-  }
-  function hideAllViews(){
-    document.querySelectorAll('[id^="view-"]').forEach(v => {
-      v.classList.add('hidden');
-      v.classList.remove('flex');
-    });
-  }
-  function activate(tabId){
-    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active','border-brand-600','text-brand-600'));
-    document.querySelectorAll('.app-nav').forEach(t => t.classList.remove('active'));
-    $('tab-' + tabId)?.classList.add('active','border-brand-600','text-brand-600');
-    $('shell-tab-' + tabId)?.classList.add('active');
-  }
-  function ensureDashboardVisible(){
-    const dash = $('view-dashboard');
-    if(!dash) return;
-    const container = $('categorySelectionContainer');
-    if(!container || container.innerHTML.trim().length < 50) callLocalInitDashboard();
-  }
-  function openTab(tabId){
-    if(!TAB_IDS.includes(tabId) || !$('view-' + tabId)) tabId = 'dashboard';
-    try { if (typeof exitExamFocusMode === 'function') exitExamFocusMode(false); } catch(e){}
-    hideAllViews();
-    const view = $('view-' + tabId);
-    if(view){
-      view.classList.remove('hidden');
-      if(tabId === 'training') view.classList.add('flex');
-      else view.classList.remove('flex');
-    }
-    activate(tabId);
-    if(tabId === 'dashboard') setTimeout(ensureDashboardVisible, 0);
-    if(tabId === 'records') setTimeout(()=>{
-      try { if(typeof recordsEnsureInstructorAndLive === 'function') recordsEnsureInstructorAndLive(false); } catch(e){}
-      try { if(typeof renderRecordsDashboard === 'function') renderRecordsDashboard(); } catch(e){ console.warn(e); }
-      try { if(typeof renderInstructorRecords === 'function') renderInstructorRecords(); } catch(e){}
-      try { if(typeof startRecordsLiveSync === 'function') startRecordsLiveSync(); } catch(e){}
-      try { if(typeof v15StartRecordSync === 'function') v15StartRecordSync(); } catch(e){}
-    }, 0);
-    $('appShellSidebar')?.classList.remove('open');
-  }
-  window.switchTab = openTab;
-  window.shellSwitch = openTab;
-  window.launchApp = function(){
-    const gateway = $('entranceGateway');
-    if(gateway){
-      gateway.style.opacity = '0';
-      setTimeout(()=>{ gateway.classList.add('hidden'); openTab('dashboard'); }, 180);
-    } else openTab('dashboard');
-  };
-  window.setShellMode = function(mode){
-    const sel = $('modeSel');
-    if(sel) sel.value = (mode === 'exam' ? 'exam' : 'practice');
-    $('shellModePractice')?.classList.toggle('active', (sel?.value || 'practice') !== 'exam');
-    $('shellModeExam')?.classList.toggle('active', (sel?.value || 'practice') === 'exam');
-  };
-  window.toggleAppSidebar = function(){ $('appShellSidebar')?.classList.toggle('open'); };
-  window.toggleFullscreen = function(){
-    try { if(!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); }
-    catch(e){ console.warn('Fullscreen not available', e); }
-  };
-  function bind(id, fn){
-    const el = $(id); if(!el || el.dataset.v19Bound === '1') return;
-    el.dataset.v19Bound = '1';
-    el.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); try{ fn(ev); } catch(e){ console.error('V19 button handler failed for', id, e); } }, true);
-  }
-  function bindAll(){
-    TAB_IDS.forEach(t => { bind('shell-tab-' + t, () => openTab(t)); bind('tab-' + t, () => openTab(t)); });
-    bind('shellModePractice', () => window.setShellMode('practice'));
-    bind('shellModeExam', () => window.setShellMode('exam'));
-    bind('shellRoleInstructor', () => { if (typeof promptInstructorLogin === 'function') promptInstructorLogin(); else safe('promptInstructorLogin'); });
-    bind('shellRoleTrainee', () => { if (typeof exitInstructorMode === 'function') exitInstructorMode(); else safe('exitInstructorMode'); });
-    bind('appShellToggle', () => window.toggleAppSidebar());
-    const launch = document.querySelector('#entranceGateway button');
-    if(launch && launch.dataset.v19Bound !== '1'){
-      launch.dataset.v19Bound = '1';
-      launch.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); window.launchApp(); }, true);
+  function showLandingMessage(message, isError){
+    try { $('entranceGateway')?.classList.add('hidden'); } catch(_) {}
+    try { document.body.classList.add('shared-exam-landing'); } catch(_) {}
+    try { $('sharedExamLanding')?.classList.remove('hidden'); } catch(_) {}
+    const err = $('sharedExamError');
+    if(err){
+      err.textContent = message || '';
+      err.classList.remove('hidden');
+      err.className = (isError ? 'mt-4 bg-red-50 border border-red-200 text-red-700' : 'mt-4 bg-blue-50 border border-blue-200 text-blue-700') + ' rounded-2xl p-3 text-sm font-bold';
     }
   }
+  async function loadWithTimeout(examId, ms){
+    if(typeof loadExamPackageFromFirestore !== 'function') throw new Error('Firestore loader is not available in this build.');
+    return await Promise.race([
+      loadExamPackageFromFirestore(examId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore loading timed out.')), ms || 6500))
+    ]);
+  }
+  function startPayload(payload){
+    if(!payload || payload.type !== 'iwcf-shared-exam') { showLandingMessage('Invalid or expired exam package. Ask the instructor to regenerate the link.', true); return; }
+    let tries = 0;
+    const run = () => {
+      tries++;
+      try {
+        if(typeof startSharedExamFromPayload !== 'function') {
+          if(tries < 80) return setTimeout(run, 100);
+          throw new Error('Shared-exam start function is not loaded.');
+        }
+        const err = $('sharedExamError'); if(err) err.classList.add('hidden');
+        startSharedExamFromPayload(payload);
+        setTimeout(() => {
+          const agree = $('sharedExamAgree'); if(agree) agree.checked = false;
+          $('sharedStuName')?.focus();
+        }, 150);
+      } catch(e){
+        console.error('V20 shared exam start failed', e);
+        if(tries < 8) return setTimeout(run, 250);
+        showLandingMessage('Unable to prepare the exam cover page: ' + (e.message || e) + '. Ask the instructor to regenerate the link from the latest platform file.', true);
+      }
+    };
+    run();
+  }
+  window.detectSharedExamLink = async function(){
+    const params = new URLSearchParams(location.search || '');
+    const examId = params.get('examId');
+    let backup = null;
+    if(location.hash && location.hash.startsWith('#exam=')) backup = safeDecode(location.hash.slice(6));
+    if(!examId && !backup) return;
+    showLandingMessage(backup ? 'Preparing the trainee cover page...' : 'Loading exam package from Firestore...', false);
+    // If the backup payload is present, use it immediately to avoid blank pages caused by Firestore/rules/network delays.
+    if(backup && backup.type === 'iwcf-shared-exam') {
+      startPayload(backup);
+      return;
+    }
+    try {
+      const payload = await loadWithTimeout(examId, 7000);
+      startPayload(payload);
+    } catch(e){
+      showLandingMessage('Unable to load this exam link from Firestore: ' + (e.message || e) + '. Ask the instructor to check Firestore rules or generate a backup package link from the latest platform.', true);
+    }
+  };
+  // Make existing generated-link buttons use the visible link reliably.
+  function visibleGeneratedLink(){
+    const txt = ($('shareLinkOutput')?.textContent || '').trim();
+    const m = txt.match(/https?:\/\/\S+/);
+    return m ? m[0] : (window.GENERATED_EXAM_LINK || '');
+  }
+  const oldCopy = window.copyGeneratedExamLink;
+  window.copyGeneratedExamLink = function(){
+    const link = visibleGeneratedLink();
+    if(!link) return alert('Generate a link first.');
+    window.GENERATED_EXAM_LINK = link;
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>{ try{ qmStatus('Trainee link copied.'); }catch(_){} }).catch(()=>prompt('Copy trainee exam link:', link));
+    else prompt('Copy trainee exam link:', link);
+  };
+  window.openGeneratedExamLink = function(){
+    const link = visibleGeneratedLink();
+    if(!link) return alert('Generate a link first.');
+    window.GENERATED_EXAM_LINK = link;
+    window.open(link, '_blank', 'noopener');
+  };
   function init(){
-    bindAll();
-    if(!document.body.classList.contains('shared-exam-landing')){
-      if($('modeSel')) window.setShellMode($('modeSel').value || 'practice');
-      callLocalInitDashboard();
+    if((location.search || '').includes('examId=') || (location.hash || '').startsWith('#exam=')) {
+      setTimeout(() => { try { window.detectSharedExamLink(); } catch(e){ showLandingMessage('Shared-link runtime error: ' + (e.message || e), true); } }, 100);
+    }
+    const hosted = $('shareHostedUrl');
+    if(hosted && /^https?:/.test(location.href) && !hosted.value) {
+      const u = new URL(location.href); u.search = ''; u.hash = '';
+      hosted.value = u.toString();
     }
   }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  window.addEventListener('load', () => setTimeout(init, 250));
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  window.addEventListener('load', () => setTimeout(init, 400));
 })();
 </script>
 
