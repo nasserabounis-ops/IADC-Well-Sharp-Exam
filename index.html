@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>IADC WellSharp Exam Trainer PRO X v14 - Firestore Record Backend</title>
+<title>IADC WellSharp Exam Trainer PRO X v15 - GitHub + Firestore Records</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -339,6 +340,7 @@
         <button id="shell-tab-dashboard" class="app-nav" onclick="shellSwitch('dashboard')"><i class="ph-bold ph-squares-four"></i> Dashboard</button>
         <button id="shell-tab-training" class="app-nav" onclick="shellSwitch('training')"><i class="ph-bold ph-student"></i> Training Studio</button>
         <button id="shell-tab-review" class="app-nav" onclick="shellSwitch('review')"><i class="ph-bold ph-chart-polar"></i> Evaluation</button>
+        <button id="shell-tab-records" class="app-nav" onclick="shellSwitch('records')"><i class="ph-bold ph-clipboard-text"></i> Records</button>
     </div>
     <div class="app-sidebar-footer">
         <button onclick="toggleFullscreen()" class="app-fullscreen-btn"><i class="ph-bold ph-corners-out"></i> FULLSCREEN</button>
@@ -372,6 +374,9 @@
                 </button>
                 <button onclick="switchTab('review')" id="tab-review" class="tab-btn px-4 sm:px-5 py-2 rounded-lg transition-all text-sm flex items-center gap-2 hover:bg-slate-200 hidden whitespace-nowrap">
                     <i class="ph-bold ph-chart-polar"></i> Evaluation
+                </button>
+                <button onclick="switchTab('records')" id="tab-records" class="tab-btn px-4 sm:px-5 py-2 rounded-lg transition-all text-sm flex items-center gap-2 hover:bg-slate-200 whitespace-nowrap">
+                    <i class="ph-bold ph-clipboard-text"></i> Records
                 </button>
             </div>
             
@@ -705,6 +710,95 @@
 
     </div>
 
+
+
+
+    <!-- ================= RECORDS TAB ================= -->
+    <div id="view-records" class="absolute inset-0 hidden w-full h-full overflow-y-auto p-4 sm:p-6 lg:p-8 fade-enter-active bg-slate-50">
+        <div class="max-w-[1600px] mx-auto space-y-6 pb-12">
+            <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 sm:p-8 shadow-lg overflow-hidden relative">
+                <div class="absolute -right-8 -top-8 opacity-10"><i class="ph-fill ph-clipboard-text text-[10rem]"></i></div>
+                <div class="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+                    <div>
+                        <div class="inline-flex items-center gap-2 bg-white/10 border border-white/10 text-slate-200 rounded-full px-3 py-1 text-xs font-black uppercase tracking-widest mb-3"><span class="qm-live-dot"></span> Firestore / Local Records</div>
+                        <h2 class="text-2xl sm:text-3xl font-black tracking-tight">Instructor Records & Professional Reports</h2>
+                        <p class="text-slate-300 font-semibold mt-2 max-w-3xl">View all trainee submissions by group or individual, monitor live Firestore records, export CSV/XLS, and print professional reports.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="recordsEnsureInstructorAndLive(true)" class="record-btn bg-brand-500 hover:bg-brand-400 text-white"><i class="ph-bold ph-cloud-check"></i> Start Live Sync</button>
+                        <button onclick="renderRecordsDashboard()" class="record-btn bg-white/10 hover:bg-white/20 text-white border border-white/10"><i class="ph-bold ph-arrows-clockwise"></i> Refresh</button>
+                        <button onclick="printRecordsDashboardReport()" class="record-btn bg-emerald-500 hover:bg-emerald-400 text-white"><i class="ph-bold ph-printer"></i> Print / PDF</button>
+                        <button onclick="exportExamRecordsXls()" class="record-btn bg-amber-400 hover:bg-amber-300 text-slate-950"><i class="ph-bold ph-file-xls"></i> Export XLS</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="recordsLoginNotice" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-5 font-bold">
+                <i class="ph-bold ph-lock-key"></i> Instructor login is required to view live records. Click <button onclick="promptInstructorLogin()" class="underline font-black">Instructor Login</button>, then return to this tab.
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                <aside class="xl:col-span-1 space-y-4">
+                    <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+                        <h3 class="font-black text-slate-800 flex items-center gap-2"><i class="ph-bold ph-funnel text-brand-600"></i> Filters</h3>
+                        <div>
+                            <label class="qm-label">Group / Crew</label>
+                            <select id="recordsDashGroup" onchange="renderRecordsDashboard()" class="qm-field"><option value="">All groups</option></select>
+                        </div>
+                        <div>
+                            <label class="qm-label">Session ID</label>
+                            <input id="recordsDashSession" oninput="renderRecordsDashboard()" class="qm-field" placeholder="EX-...">
+                        </div>
+                        <div>
+                            <label class="qm-label">Candidate name / email</label>
+                            <input id="recordsDashSearch" oninput="renderRecordsDashboard()" class="qm-field" placeholder="Search trainee">
+                        </div>
+                        <div>
+                            <label class="qm-label">Status</label>
+                            <select id="recordsDashStatus" onchange="renderRecordsDashboard()" class="qm-field">
+                                <option value="">All statuses</option>
+                                <option value="submitted">Submitted only</option>
+                                <option value="active">Active / in-progress</option>
+                                <option value="timeout">Timeout submitted</option>
+                            </select>
+                        </div>
+                        <div id="recordDashboardFirebaseStatus" class="text-[11px] leading-relaxed font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3">Sync not started.</div>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button onclick="clearRecordsFilters()" class="record-btn bg-slate-100 hover:bg-slate-200 text-slate-700 justify-center"><i class="ph-bold ph-x-circle"></i> Clear Filters</button>
+                            <button onclick="exportFilteredRecordsCsv()" class="record-btn bg-emerald-600 hover:bg-emerald-700 text-white justify-center"><i class="ph-bold ph-file-csv"></i> Export Filtered CSV</button>
+                            <button onclick="printRecordsDashboardReport('group')" class="record-btn bg-purple-600 hover:bg-purple-700 text-white justify-center"><i class="ph-bold ph-users-three"></i> Print Group Report</button>
+                        </div>
+                    </div>
+                    <div id="recordsDashGroupSummary" class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm text-sm font-bold text-slate-600">No group selected.</div>
+                </aside>
+
+                <section class="xl:col-span-3 space-y-6">
+                    <div id="recordsDashCards" class="grid grid-cols-2 lg:grid-cols-5 gap-4"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                            <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="ph-bold ph-chart-bar text-brand-600"></i> Score Distribution</h3>
+                            <div id="recordsScoreChart" class="space-y-3"></div>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                            <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="ph-bold ph-warning-circle text-danger-600"></i> Weakest Subcategories</h3>
+                            <div id="recordsWeaknessChart" class="space-y-3"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                            <div class="flex items-center justify-between mb-4 gap-2"><h3 class="font-black text-slate-800 flex items-center gap-2"><i class="ph-bold ph-users-three text-purple-600"></i> Group Performance</h3><span id="recordsGroupCount" class="text-xs font-black text-slate-400"></span></div>
+                            <div id="recordsGroupTable" class="space-y-2 max-h-[360px] overflow-y-auto custom-scrollbar"></div>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                            <div class="flex items-center justify-between mb-4 gap-2"><h3 class="font-black text-slate-800 flex items-center gap-2"><i class="ph-bold ph-list-checks text-emerald-600"></i> Individual Records</h3><span id="recordsIndividualCount" class="text-xs font-black text-slate-400"></span></div>
+                            <div id="recordsDashList" class="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar"></div>
+                        </div>
+                    </div>
+                    <div id="recordsDashDetail" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm"></div>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <!-- ================= TRAINING STUDIO TAB ================= -->
     <div id="view-training" class="absolute inset-0 hidden w-full h-full overflow-hidden flex-col md:flex-row bg-white fade-enter-active">
@@ -6828,7 +6922,6 @@ d) Discuss the well control plan and reinforce individual crew duties
   const FIREBASE_CFG = {
     apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
     authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
-    databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
     projectId: "iadc-well-sharp-prep-record",
     storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
     messagingSenderId: "697272682326",
@@ -7225,6 +7318,312 @@ d) Discuss the well control plan and reinforce individual crew duties
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialiseV13ShareUi);
   else initialiseV13ShareUi();
   window.addEventListener('load', () => setTimeout(initialiseV13ShareUi, 150));
+})();
+</script>
+
+
+<style>
+/* ===== v15 GitHub Pages + Records dashboard patch ===== */
+.records-card{background:white;border:1px solid #e2e8f0;border-radius:1.25rem;padding:1rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.records-card .label{font-size:.64rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#64748b}.records-card .value{font-size:1.65rem;line-height:1;font-weight:900;color:#0f172a;margin-top:.25rem}.records-bar{height:.7rem;background:#e2e8f0;border-radius:999px;overflow:hidden}.records-bar>div{height:100%;background:#2563eb;border-radius:999px}.records-row{display:grid;grid-template-columns:1.4fr 1fr .75fr .8fr;gap:.75rem;align-items:center;border:1px solid #e2e8f0;background:white;border-radius:1rem;padding:.85rem;transition:background .15s ease,transform .15s ease}.records-row:hover{background:#f8fafc;transform:translateY(-1px)}.records-pill{display:inline-flex;border-radius:999px;padding:.28rem .55rem;font-size:.65rem;font-weight:900;border:1px solid #e2e8f0;background:#f8fafc;color:#334155}.records-mini-table{width:100%;border-collapse:collapse}.records-mini-table th,.records-mini-table td{border:1px solid #e2e8f0;padding:8px;font-size:12px;text-align:left;vertical-align:top}.records-mini-table th{background:#f1f5f9;font-weight:900;color:#334155}@media(max-width:900px){.records-row{grid-template-columns:1fr}.records-card .value{font-size:1.35rem}}@media print{.app-sidebar,header,#appShellToggle,.no-print,.record-btn,button,#recordsLoginNotice{display:none!important}#view-records{position:static!important;display:block!important;overflow:visible!important;background:white!important;padding:0!important}.records-card,.bg-white{box-shadow:none!important;break-inside:avoid}body{overflow:visible!important;background:white!important}}
+</style>
+<script>
+/* ===== v15: GitHub-hosted exam links, Firebase config correction, top-level Records tab ===== */
+(function(){
+  const FIREBASE_CFG_V15 = {
+    apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
+    authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
+    databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
+    projectId: "iadc-well-sharp-prep-record",
+    storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
+    messagingSenderId: "697272682326",
+    appId: "1:697272682326:web:d95a0b7a0aa0d66ab978f7"
+  };
+  window.IADC_FIREBASE_CONFIG = FIREBASE_CFG_V15;
+  try { if(window.IADC_FIREBASE_CONFIG_V9) Object.assign(window.IADC_FIREBASE_CONFIG_V9, FIREBASE_CFG_V15); } catch(_) {}
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+  const avg = (arr) => arr.length ? arr.reduce((a,b)=>a+Number(b||0),0)/arr.length : 0;
+
+  function cleanHostedBase(raw){
+    raw = String(raw || '').trim();
+    if(!raw || raw.startsWith('file:')) raw = '';
+    try {
+      let u = raw ? new URL(raw, location.href) : new URL(location.href);
+      if(!/^https?:$/.test(u.protocol)) throw new Error('Not http');
+      u.search = '';
+      u.hash = '';
+      // GitHub Pages: keep the repository path and index.html if present. This prevents blank pages caused by generating links to the wrong root.
+      return u.toString();
+    } catch(e) {
+      return 'https://iadc-well-sharp-prep-record.web.app/';
+    }
+  }
+
+  window.getPlatformPublicUrl = function(){
+    const input = $('shareHostedUrl');
+    const stored = localStorage.getItem('iwcf_hosted_platform_url') || '';
+    const currentIsHosted = /^(http|https):$/i.test(location.protocol) && !location.href.startsWith('file:');
+    const currentBase = currentIsHosted ? cleanHostedBase(location.href) : '';
+    let typed = input?.value?.trim() || '';
+    // If the page is hosted on GitHub and the box still contains the old Firebase default, use the current GitHub page.
+    if(currentBase && /github\.io$/i.test(location.hostname) && (!typed || /iadc-well-sharp-prep-record\.web\.app/i.test(typed))) typed = currentBase;
+    let url = cleanHostedBase(typed || stored || currentBase || 'https://iadc-well-sharp-prep-record.web.app/');
+    if(input) input.value = url;
+    localStorage.setItem('iwcf_hosted_platform_url', url);
+    return url;
+  };
+
+  function encodePayload(payload){
+    if(typeof base64UrlEncode === 'function') return base64UrlEncode(payload);
+    const json = JSON.stringify(payload);
+    return btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function decodePayload(encoded){
+    if(typeof base64UrlDecode === 'function') return base64UrlDecode(encoded);
+    const padded = String(encoded).replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - String(encoded).length % 4) % 4);
+    return JSON.parse(decodeURIComponent(escape(atob(padded))));
+  }
+  function generatedLinkFromOutput(){
+    const txt = ($('shareLinkOutput')?.textContent || '').trim();
+    const m = txt.match(/https?:\/\/\S+/);
+    return m ? m[0] : '';
+  }
+  function setGenerated(link,payload,stats,msg,ok=true){
+    window.GENERATED_EXAM_LINK = link || '';
+    window.GENERATED_EXAM_PACKAGE = payload || window.GENERATED_EXAM_PACKAGE || null;
+    const out = $('shareLinkOutput'); if(out){ out.textContent = link || ''; out.style.whiteSpace='pre-wrap'; out.style.wordBreak='break-all'; }
+    const st = $('shareLinkStats'); if(st) st.textContent = stats || '';
+    try { if(typeof qmStatus === 'function' && msg) qmStatus(msg, ok); } catch(_) {}
+  }
+  async function savePackageSafe(payload){
+    try { if(typeof saveExamPackageToFirestore !== 'function') throw new Error('Firestore save function is not available.'); await saveExamPackageToFirestore(payload); return {ok:true}; }
+    catch(e){ console.warn('Firestore save failed:', e); return {ok:false,error:e?.message||String(e)}; }
+  }
+
+  window.packageQuestionsForLink = async function(rows, sourceLabel){
+    if(!Array.isArray(rows) || !rows.length) { alert('No questions selected for this shared exam. Select categories or filters first.'); return ''; }
+    const title = $('shareExamTitle')?.value?.trim() || 'WellSharp Practice Exam';
+    const groupName = (typeof normalizeGroupName === 'function') ? normalizeGroupName($('shareGroupName')?.value || 'Ungrouped') : (($('shareGroupName')?.value || '').trim() || 'Ungrouped');
+    const minutes = Math.max(1, parseInt($('shareExamMinutes')?.value || (window.UI?.minutesInput?.value) || '60', 10));
+    const legacyEndpoint = $('shareIncludeEndpoint')?.checked ? ($('shareResultEndpoint')?.value?.trim() || '') : '';
+    if(legacyEndpoint) localStorage.setItem('iwcf_result_endpoint', legacyEndpoint);
+    const refs = rows.map(q => q.orig);
+    const customQuestions = rows.filter(q => !(Number(q.orig) >= 1 && Number(q.orig) <= 402)).map(q => ({...q, visual: q.visual && String(q.visual.src||'').length > 250000 ? {...q.visual, src:''} : q.visual}));
+    const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+    const payload = { type:'iwcf-shared-exam', version:15, createdAt:new Date().toISOString(), sessionId, title, groupName, minutes, mode:'exam', shuffle: !!$('shareShuffle')?.checked, sourceLabel, refs, customQuestions, resultEndpoint:legacyEndpoint, firestoreProject:FIREBASE_CFG_V15.projectId };
+    const encoded = encodePayload(payload);
+    const base = window.getPlatformPublicUrl();
+    const sep = base.includes('?') ? '&' : '?';
+    const link = `${base}${sep}examId=${encodeURIComponent(sessionId)}#exam=${encoded}`;
+    const shortLink = `${base}${sep}examId=${encodeURIComponent(sessionId)}`;
+    setGenerated(link, payload, `${rows.length} questions • ${minutes} min • ${groupName} • Saving to Firestore...`, 'Generated a GitHub/Firebase-compatible trainee link. Saving Firestore package...');
+    try { if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); } catch(e) { console.warn(e); }
+    try { if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(e) { console.warn(e); }
+    const saved = await savePackageSafe(payload);
+    const badge = $('firebaseShareStatus');
+    if(saved.ok){ if(badge){ badge.className='qm-firebase-badge qm-firebase-ok'; badge.innerHTML='<i class="ph-bold ph-cloud-check"></i> Firestore saved'; } setGenerated(link, payload, `${rows.length} questions • ${minutes} min • ${groupName} • Session ${sessionId}`, `Trainee link ready. Use the visible link. Short Firestore link also available after save: ${shortLink}`); }
+    else { if(badge){ badge.className='qm-firebase-badge qm-firebase-warn'; badge.innerHTML=`<i class="ph-bold ph-cloud-warning"></i> Firestore save failed: ${esc(saved.error)}`; } setGenerated(link, payload, `${rows.length} questions • ${minutes} min • ${groupName} • Backup package link active`, 'Firestore save failed, but the visible link contains a backup exam package and should still open. Check Firestore rules for live records.', false); }
+    return link;
+  };
+
+  window.copyGeneratedExamLink = function(){
+    const link = window.GENERATED_EXAM_LINK || generatedLinkFromOutput();
+    if(!link) return alert('Generate a link first.');
+    window.GENERATED_EXAM_LINK = link;
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>{try{qmStatus('Trainee link copied.')}catch(_){}}).catch(()=>prompt('Copy trainee exam link:',link));
+    else prompt('Copy trainee exam link:',link);
+  };
+  window.openGeneratedExamLink = function(){ const link = window.GENERATED_EXAM_LINK || generatedLinkFromOutput(); if(!link) return alert('Generate a link first.'); window.open(link,'_blank','noopener'); };
+  window.downloadExamPackage = function(){
+    let payload = window.GENERATED_EXAM_PACKAGE;
+    const link = window.GENERATED_EXAM_LINK || generatedLinkFromOutput();
+    if(!payload){ const m = String(link).match(/#exam=([^\s]+)/); if(m) { try { payload = decodePayload(m[1]); } catch(e){} } }
+    if(!payload) return alert('Generate a link first.');
+    if(typeof downloadTextFile === 'function') downloadTextFile(`${payload.sessionId || 'shared_exam'}_exam_package.json`, JSON.stringify(payload,null,2));
+  };
+
+  // More robust shared-link loading. It avoids blank screens by using the backup #exam payload if Firestore fails and by showing an on-page error if any runtime issue occurs.
+  window.detectSharedExamLink = async function(){
+    const params = new URLSearchParams(location.search || '');
+    const examId = params.get('examId');
+    let backup = null;
+    if(location.hash && location.hash.startsWith('#exam=')){ try { backup = decodePayload(location.hash.slice(6)); } catch(e){ console.warn('Could not decode #exam backup:', e); } }
+    if(!examId && !backup) return;
+    $('entranceGateway')?.classList.add('hidden');
+    document.body.classList.add('shared-exam-landing');
+    $('sharedExamLanding')?.classList.remove('hidden');
+    const err = $('sharedExamError');
+    if(err){ err.textContent = examId ? 'Loading exam package from Firestore. Backup package will be used automatically if Firestore is unavailable...' : 'Loading embedded exam package...'; err.classList.remove('hidden'); }
+    let payload = null;
+    if(examId && typeof loadExamPackageFromFirestore === 'function'){
+      try { payload = await loadExamPackageFromFirestore(examId); }
+      catch(e){ console.warn('Firestore exam read failed; using backup if available:', e); if(err) err.textContent = backup ? 'Firestore read failed. Loading backup exam package from the link...' : `Firestore read failed: ${e.message}. No backup package was found in the link.`; }
+    }
+    payload = payload || backup;
+    if(!payload || payload.type !== 'iwcf-shared-exam'){ if(err) err.textContent = 'Unable to load this exam link. Regenerate the link from the instructor bank and make sure the Public hosted platform URL is the GitHub page URL that opens the platform.'; return; }
+    let tries = 0;
+    function startWhenReady(){
+      tries++;
+      try {
+        if((typeof BANK === 'undefined') || !Array.isArray(BANK) || !BANK.length || typeof startSharedExamFromPayload !== 'function') { if(tries < 60) return setTimeout(startWhenReady, 150); }
+        if(err) err.classList.add('hidden');
+        startSharedExamFromPayload(payload);
+      } catch(e){
+        console.error('Shared exam start failed:', e);
+        if(tries < 10) return setTimeout(startWhenReady, 200);
+        if(err){ err.textContent = 'Unable to start shared exam: ' + (e.message || e); err.classList.remove('hidden'); }
+      }
+    }
+    startWhenReady();
+  };
+
+  function allRecords(){ try { return (typeof getExamRecords === 'function' ? getExamRecords() : []).slice(); } catch(e){ return []; } }
+  function recordGroup(r){ return String(r.groupName || r.trainee?.group || 'Ungrouped').trim() || 'Ungrouped'; }
+  function passMark(){ return 70; }
+  function filteredRecords(){
+    const g = $('recordsDashGroup')?.value || '';
+    const s = ($('recordsDashSession')?.value || '').trim().toLowerCase();
+    const q = ($('recordsDashSearch')?.value || '').trim().toLowerCase();
+    const st = $('recordsDashStatus')?.value || '';
+    return allRecords().filter(r => {
+      const rg = recordGroup(r);
+      const status = String(r.status || '').toLowerCase();
+      const hay = `${r.trainee?.name||''} ${r.trainee?.email||''} ${r.trainee?.title||''}`.toLowerCase();
+      return (!g || rg === g) && (!s || String(r.sessionId||'').toLowerCase().includes(s)) && (!q || hay.includes(q)) && (!st || status.includes(st));
+    }).sort((a,b)=> new Date(b.submittedAt||0) - new Date(a.submittedAt||0));
+  }
+  function updateRecordGroupOptions(records){
+    const sel = $('recordsDashGroup'); if(!sel) return;
+    const cur = sel.value;
+    const groups = Array.from(new Set(records.map(recordGroup))).sort();
+    sel.innerHTML = '<option value="">All groups</option>' + groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    if(groups.includes(cur)) sel.value = cur;
+  }
+  function scoreBand(score){ score = Number(score||0); if(score>=90) return '90–100'; if(score>=80) return '80–89'; if(score>=70) return '70–79'; if(score>=60) return '60–69'; return '<60'; }
+  function categoryStats(records){
+    const map = new Map();
+    records.forEach(r => (r.responses||[]).forEach(x => { const key = x.subCategory || x.mainCategory || 'Uncategorized'; const item = map.get(key) || {key,total:0,wrong:0}; item.total++; if(!x.isCorrect) item.wrong++; map.set(key,item); }));
+    return [...map.values()].filter(x=>x.total).map(x=>({...x, pct:Math.round((x.wrong/x.total)*100)})).sort((a,b)=>b.pct-a.pct || b.wrong-a.wrong).slice(0,8);
+  }
+  function renderCards(records){
+    const box = $('recordsDashCards'); if(!box) return;
+    const submitted = records.filter(r => String(r.status||'').includes('submit')).length;
+    const active = records.filter(r => String(r.status||'') === 'active').length;
+    const scores = records.map(r=>Number(r.scorePct||0)).filter(n=>!isNaN(n));
+    const pass = scores.filter(s=>s>=passMark()).length;
+    const answerPct = records.length ? Math.round(avg(records.map(r => r.total ? (r.answered/r.total)*100 : 0))) : 0;
+    const cards = [
+      ['Records', records.length, 'ph-clipboard-text', 'text-brand-700'],
+      ['Submitted', submitted, 'ph-paper-plane-tilt', 'text-emerald-700'],
+      ['Average Score', `${Math.round(avg(scores))}%`, 'ph-chart-line-up', 'text-purple-700'],
+      ['Pass Rate', scores.length ? `${Math.round((pass/scores.length)*100)}%` : '0%', 'ph-seal-check', 'text-success-700'],
+      ['Answered Avg.', `${answerPct}%`, 'ph-list-checks', 'text-amber-700']
+    ];
+    box.innerHTML = cards.map(c=>`<div class="records-card"><div class="flex items-center justify-between"><div class="label">${c[0]}</div><i class="ph-bold ${c[2]} ${c[3]} text-xl"></i></div><div class="value">${c[1]}</div></div>`).join('');
+  }
+  function renderCharts(records){
+    const scoreBox = $('recordsScoreChart'), weakBox = $('recordsWeaknessChart');
+    if(scoreBox){
+      const bands = ['90–100','80–89','70–79','60–69','<60']; const counts = Object.fromEntries(bands.map(b=>[b,0]));
+      records.forEach(r=>{ counts[scoreBand(r.scorePct)]++; });
+      const max = Math.max(1,...Object.values(counts));
+      scoreBox.innerHTML = bands.map(b=>`<div><div class="flex justify-between text-xs font-black text-slate-600 mb-1"><span>${b}</span><span>${counts[b]}</span></div><div class="records-bar"><div style="width:${Math.round((counts[b]/max)*100)}%"></div></div></div>`).join('') || '<div class="text-sm font-bold text-slate-500">No records yet.</div>';
+    }
+    if(weakBox){
+      const stats = categoryStats(records);
+      weakBox.innerHTML = stats.length ? stats.map(s=>`<div><div class="flex justify-between text-xs font-black text-slate-600 mb-1"><span class="truncate pr-2">${esc(s.key)}</span><span>${s.pct}% gap</span></div><div class="records-bar"><div class="bg-danger-500" style="width:${clamp(s.pct,4,100)}%"></div></div><div class="text-[10px] font-bold text-slate-400 mt-1">${s.wrong} wrong/open of ${s.total}</div></div>`).join('') : '<div class="text-sm font-bold text-success-700">No weakness data yet.</div>';
+    }
+  }
+  function renderGroups(records){
+    const box = $('recordsGroupTable'); if(!box) return;
+    const map = new Map();
+    records.forEach(r=>{ const g=recordGroup(r); const a=map.get(g)||[]; a.push(r); map.set(g,a); });
+    const groups = [...map.entries()].map(([g,arr])=>({g, n:arr.length, submitted:arr.filter(r=>String(r.status||'').includes('submit')).length, avg:Math.round(avg(arr.map(r=>r.scorePct||0))), pass:Math.round((arr.filter(r=>Number(r.scorePct||0)>=passMark()).length/Math.max(arr.length,1))*100)})).sort((a,b)=>b.avg-a.avg);
+    $('recordsGroupCount') && ($('recordsGroupCount').textContent = `${groups.length} group(s)`);
+    box.innerHTML = groups.length ? groups.map(x=>`<button onclick="recordsSelectGroup('${esc(String(x.g).replace(/'/g,'\\\''))}')" class="w-full text-left border border-slate-200 rounded-2xl p-3 hover:bg-slate-50"><div class="flex items-center justify-between gap-2"><div class="font-black text-slate-800">${esc(x.g)}</div><div class="font-black ${x.avg>=passMark()?'text-success-700':'text-danger-700'}">${x.avg}%</div></div><div class="records-bar mt-2"><div style="width:${clamp(x.avg,0,100)}%"></div></div><div class="flex flex-wrap gap-2 mt-2 text-[10px] font-black text-slate-500"><span>${x.n} record(s)</span><span>${x.submitted} submitted</span><span>${x.pass}% pass</span></div></button>`).join('') : '<div class="text-sm font-bold text-slate-500">No groups yet.</div>';
+  }
+  window.recordsSelectGroup = function(g){ const sel=$('recordsDashGroup'); if(sel){ sel.value = g; renderRecordsDashboard(); } };
+  function renderList(records){
+    const list = $('recordsDashList'); if(!list) return;
+    $('recordsIndividualCount') && ($('recordsIndividualCount').textContent = `${records.length} record(s)`);
+    list.innerHTML = records.length ? records.map((r,i)=>`<button onclick="showRecordsDashboardDetail(${i})" class="records-row w-full text-left"><div><div class="font-black text-slate-800">${esc(r.trainee?.name || 'Candidate')}</div><div class="text-xs font-bold text-slate-500">${esc(r.trainee?.email || '')}</div><div class="mt-1"><span class="record-group-pill">${esc(recordGroup(r))}</span></div></div><div class="text-xs font-bold text-slate-600">${esc(r.examTitle || '')}<br><span class="break-all">${esc(r.sessionId || '')}</span></div><div><div class="text-2xl font-black ${Number(r.scorePct||0)>=passMark()?'text-success-700':'text-danger-700'}">${Number(r.scorePct||0)}%</div><div class="text-[10px] font-black text-slate-400">${r.correct||0}/${r.total||0} correct</div></div><div><span class="records-pill">${esc(r.status||'')}</span><div class="text-[10px] font-bold text-slate-400 mt-1">${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : ''}</div></div></button>`).join('') : '<div class="bg-white border border-slate-200 rounded-2xl p-5 text-sm font-bold text-slate-500">No records match the current filters.</div>';
+  }
+  window.showRecordsDashboardDetail = function(filteredIndex){
+    const records = filteredRecords(); const r = records[filteredIndex]; if(!r) return;
+    const box = $('recordsDashDetail'); if(!box) return;
+    const wrong = (r.responses||[]).filter(x=>!x.isCorrect);
+    const correct = (r.responses||[]).filter(x=>x.isCorrect);
+    const weak = categoryStats([r]);
+    box.classList.remove('hidden');
+    box.innerHTML = `<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-5"><div><h3 class="text-2xl font-black text-slate-900">${esc(r.trainee?.name||'Candidate')} — ${Number(r.scorePct||0)}%</h3><p class="text-sm font-bold text-slate-500">${esc(r.trainee?.title||'')} • ${esc(r.trainee?.email||'')} • <span class="record-group-pill">${esc(recordGroup(r))}</span></p><p class="text-xs font-bold text-slate-400 mt-1">Session ${esc(r.sessionId||'')} • ${esc(r.status||'')} • ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : ''}</p></div><div class="flex flex-wrap gap-2"><button onclick="printIndividualRecordReport('${esc(recordIdentity(r)).replace(/'/g,'\\\'')}')" class="record-btn bg-purple-600 hover:bg-purple-700 text-white"><i class="ph-bold ph-printer"></i> Print / PDF</button><button onclick="downloadTextFile('${esc((r.sessionId||'record').replace(/[^a-z0-9_-]/gi,'_'))}_record.json', JSON.stringify(filteredRecords()[${filteredIndex}], null, 2))" class="record-btn bg-slate-900 hover:bg-slate-800 text-white"><i class="ph-bold ph-download-simple"></i> JSON</button><button onclick="removeRecordByIdentity('${esc(recordIdentity(r)).replace(/'/g,'\\\'')}')" class="record-btn bg-danger-600 hover:bg-danger-700 text-white"><i class="ph-bold ph-trash"></i> Remove</button></div></div><div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"><div class="records-card"><div class="label">Score</div><div class="value">${r.scorePct||0}%</div></div><div class="records-card"><div class="label">Correct</div><div class="value">${r.correct||0}/${r.total||0}</div></div><div class="records-card"><div class="label">Answered</div><div class="value">${r.answered||0}</div></div><div class="records-card"><div class="label">Open</div><div class="value">${r.unanswered||0}</div></div><div class="records-card"><div class="label">Time Left</div><div class="value">${Math.round((r.timeLeftSeconds||0)/60)}m</div></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-5"><div><h4 class="font-black text-slate-800 mb-2">Strengths</h4><div class="space-y-2">${correct.slice(0,8).map(x=>`<div class="border border-emerald-200 bg-emerald-50 rounded-xl p-3 text-xs font-bold text-emerald-900">Q${esc(x.sessionQuestion)} • Ref ${esc(x.ref)} • ${esc(x.subCategory||'')}</div>`).join('') || '<div class="text-sm font-bold text-slate-500">No correct responses recorded.</div>'}</div></div><div><h4 class="font-black text-slate-800 mb-2">Gaps / Recommendations</h4><div class="space-y-2">${weak.map(x=>`<div class="border border-amber-200 bg-amber-50 rounded-xl p-3"><div class="text-xs font-black text-amber-900">${esc(x.key)} — ${x.pct}% gap</div><div class="text-xs text-amber-800 font-bold">Review missed questions and redo related scenario drills.</div></div>`).join('') || '<div class="text-sm font-bold text-success-700">No significant weakness detected.</div>'}</div></div></div><h4 class="font-black text-slate-800 mt-6 mb-2">Wrong / Open Answer Review</h4><div class="space-y-2 max-h-[520px] overflow-y-auto custom-scrollbar">${wrong.map(x=>`<div class="border border-slate-200 rounded-xl p-3"><div class="text-xs font-black text-slate-500">Q${esc(x.sessionQuestion)} • Ref ${esc(x.ref)} • ${esc(x.subCategory||'')}</div><div class="font-bold text-slate-800">${esc(x.prompt)}</div><div class="text-xs mt-1 text-slate-600"><strong>Selected:</strong> ${esc((x.selectedLetters||[]).join(', ') || 'Open')} • <strong>Correct:</strong> ${esc(x.correctLetter)}</div></div>`).join('') || '<div class="text-sm font-bold text-success-700">No wrong/open answers.</div>'}</div>`;
+    box.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  window.removeRecordByIdentity = function(key){
+    if(!confirm('Remove this record from the local instructor dashboard? This does not delete it from Firestore unless your rules/backend do so separately.')) return;
+    const records = allRecords().filter(r => recordIdentity(r) !== key);
+    if(typeof setExamRecords === 'function') setExamRecords(records);
+    renderRecordsDashboard();
+  };
+  window.clearRecordsFilters = function(){ ['recordsDashGroup','recordsDashSession','recordsDashSearch','recordsDashStatus'].forEach(id=>{ const el=$(id); if(el) el.value=''; }); renderRecordsDashboard(); };
+  window.renderRecordsDashboard = function(){
+    const notice = $('recordsLoginNotice'); if(notice) notice.classList.toggle('hidden', !!(window.APP_STATE && APP_STATE.instructorMode));
+    const records = allRecords(); updateRecordGroupOptions(records); const filtered = filteredRecords();
+    renderCards(filtered); renderCharts(filtered); renderGroups(records); renderList(filtered);
+    const group = $('recordsDashGroup')?.value || '';
+    const gs = $('recordsDashGroupSummary'); if(gs){
+      if(!group) gs.innerHTML = `<h3 class="font-black text-slate-800 mb-2">All Groups</h3><p>${records.length} total record(s). Select a group to view its focused performance profile.</p>`;
+      else { const gr = records.filter(r=>recordGroup(r)===group); gs.innerHTML = `<h3 class="font-black text-slate-800 mb-2">${esc(group)}</h3><p>${gr.length} record(s) • Average ${Math.round(avg(gr.map(r=>r.scorePct||0)))}% • Submitted ${gr.filter(r=>String(r.status||'').includes('submit')).length}</p>`; }
+    }
+    const status = $('recordDashboardFirebaseStatus'); if(status){ const online = !!window.IADC_FIREBASE || !!window.IADC_FIREBASE_REST; status.innerHTML = `<span class="qm-firebase-badge ${online?'qm-firebase-ok':'qm-firebase-warn'}"><i class="ph-bold ${online?'ph-cloud-check':'ph-cloud-warning'}"></i> ${online?'Firestore ready':'Firestore not ready'}</span><div class="mt-2">${filtered.length} visible of ${records.length} local/online synchronized records.</div>`; }
+  };
+  window.recordsEnsureInstructorAndLive = function(manual=false){
+    if(!window.APP_STATE || !APP_STATE.instructorMode){ if(manual) alert('Instructor login required.'); renderRecordsDashboard(); return; }
+    try { if(typeof startFirestoreRecordListener === 'function') startFirestoreRecordListener(manual); } catch(e){ console.warn(e); }
+    setTimeout(renderRecordsDashboard, 400);
+  };
+  window.exportFilteredRecordsCsv = function(){
+    const records = filteredRecords(); if(!records.length) return alert('No filtered records to export.');
+    const header = ['group','sessionId','examTitle','status','name','email','title','scorePct','correct','total','answered','unanswered','submittedAt'];
+    const rows = records.map(r => [recordGroup(r),r.sessionId,r.examTitle,r.status,r.trainee?.name,r.trainee?.email,r.trainee?.title,r.scorePct,r.correct,r.total,r.answered,r.unanswered,r.submittedAt].map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','));
+    if(typeof downloadTextFile === 'function') downloadTextFile(`filtered_exam_records_${new Date().toISOString().slice(0,10)}.csv`, header.join(',')+'\n'+rows.join('\n'), 'text/csv');
+  };
+  function reportHtml(records, title){
+    const weak = categoryStats(records); const groups = Array.from(new Set(records.map(recordGroup))).sort();
+    return `<div class="record-report-print"><h1 style="font-size:26px;font-weight:900;margin:0 0 4px">${esc(title)}</h1><div style="font-size:12px;color:#64748b;font-weight:700;margin-bottom:14px">Generated ${new Date().toLocaleString()} • ${records.length} record(s) • ${groups.length} group(s)</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"><div class="records-card"><div class="label">Average</div><div class="value">${Math.round(avg(records.map(r=>r.scorePct||0)))}%</div></div><div class="records-card"><div class="label">Pass Rate</div><div class="value">${records.length?Math.round(records.filter(r=>Number(r.scorePct||0)>=passMark()).length/records.length*100):0}%</div></div><div class="records-card"><div class="label">Submitted</div><div class="value">${records.filter(r=>String(r.status||'').includes('submit')).length}</div></div><div class="records-card"><div class="label">Groups</div><div class="value">${groups.length}</div></div></div><h2 style="font-size:18px;font-weight:900;margin:18px 0 8px">Weakest Areas</h2><table class="records-mini-table"><thead><tr><th>Area</th><th>Gap %</th><th>Wrong/Open</th><th>Recommendation</th></tr></thead><tbody>${weak.map(w=>`<tr><td>${esc(w.key)}</td><td>${w.pct}%</td><td>${w.wrong}/${w.total}</td><td>Review concepts, repeat scenarios, and coach decision-making for this area.</td></tr>`).join('') || '<tr><td colspan="4">No weakness data.</td></tr>'}</tbody></table><h2 style="font-size:18px;font-weight:900;margin:18px 0 8px">Individual Results</h2><table class="records-mini-table"><thead><tr><th>Group</th><th>Name</th><th>Email/ID</th><th>Score</th><th>Answered</th><th>Status</th><th>Session</th></tr></thead><tbody>${records.map(r=>`<tr><td>${esc(recordGroup(r))}</td><td>${esc(r.trainee?.name||'')}</td><td>${esc(r.trainee?.email||'')}</td><td>${esc(r.scorePct||0)}%</td><td>${esc(r.answered||0)}/${esc(r.total||0)}</td><td>${esc(r.status||'')}</td><td>${esc(r.sessionId||'')}</td></tr>`).join('') || '<tr><td colspan="7">No records.</td></tr>'}</tbody></table></div>`;
+  }
+  window.printRecordsDashboardReport = function(mode){
+    const records = filteredRecords(); if(!records.length) return alert('No records to print.');
+    const group = $('recordsDashGroup')?.value || ''; const title = mode === 'group' && group ? `WellSharp Group Report — ${group}` : 'WellSharp Records Report';
+    const w = window.open('', '_blank', 'width=1100,height=800'); if(!w) return window.print();
+    w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"><style>body{font-family:Inter,Arial,sans-serif;color:#0f172a;padding:24px}.records-card{border:1px solid #e2e8f0;border-radius:14px;padding:12px}.label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:900}.value{font-size:26px;font-weight:900}.records-mini-table{width:100%;border-collapse:collapse}.records-mini-table th,.records-mini-table td{border:1px solid #dbe3ee;padding:7px;font-size:11px;text-align:left;vertical-align:top}.records-mini-table th{background:#f1f5f9;font-weight:900}@media print{body{padding:0}}</style></head><body>${reportHtml(records,title)}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`); w.document.close();
+  };
+  window.printIndividualRecordReport = function(key){
+    const r = allRecords().find(x=>recordIdentity(x)===key); if(!r) return alert('Record not found.');
+    const w = window.open('', '_blank', 'width=1100,height=800'); if(!w) return;
+    const wrong = (r.responses||[]).filter(x=>!x.isCorrect); const weak = categoryStats([r]);
+    const html = `<h1 style="font-size:26px;font-weight:900;margin:0">Individual WellSharp Evaluation</h1><p style="font-size:12px;color:#64748b;font-weight:700">${esc(r.trainee?.name||'Candidate')} • ${esc(recordGroup(r))} • ${esc(r.sessionId||'')}</p>${reportHtml([r], 'Summary')}<h2 style="font-size:18px;font-weight:900;margin:18px 0 8px">Detailed Wrong/Open Questions</h2><table class="records-mini-table"><thead><tr><th>Question</th><th>Area</th><th>Selected</th><th>Correct</th></tr></thead><tbody>${wrong.map(x=>`<tr><td>${esc(x.prompt)}</td><td>${esc(x.subCategory||'')}</td><td>${esc((x.selectedLetters||[]).join(', ')||'Open')}</td><td>${esc(x.correctLetter||'')}</td></tr>`).join('') || '<tr><td colspan="4">No wrong/open answers.</td></tr>'}</tbody></table>`;
+    w.document.write(`<!doctype html><html><head><title>Individual Record</title><meta charset="utf-8"><style>body{font-family:Inter,Arial,sans-serif;color:#0f172a;padding:24px}.records-card{border:1px solid #e2e8f0;border-radius:14px;padding:12px}.label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:900}.value{font-size:26px;font-weight:900}.records-mini-table{width:100%;border-collapse:collapse}.records-mini-table th,.records-mini-table td{border:1px solid #dbe3ee;padding:7px;font-size:11px;text-align:left;vertical-align:top}.records-mini-table th{background:#f1f5f9;font-weight:900}</style></head><body>${html}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`); w.document.close();
+  };
+
+  const oldSwitchTab = window.switchTab;
+  window.switchTab = function(tabId){
+    if(tabId === 'records') { if(oldSwitchTab) oldSwitchTab.call(this, tabId); recordsEnsureInstructorAndLive(false); renderRecordsDashboard(); return; }
+    return oldSwitchTab ? oldSwitchTab.apply(this, arguments) : undefined;
+  };
+  const oldShellSwitch = window.shellSwitch;
+  window.shellSwitch = function(tabId){
+    if(tabId === 'records') { if(oldShellSwitch) oldShellSwitch.call(this, tabId); recordsEnsureInstructorAndLive(false); renderRecordsDashboard(); return; }
+    return oldShellSwitch ? oldShellSwitch.apply(this, arguments) : (window.switchTab ? window.switchTab(tabId) : undefined);
+  };
+  function initV15(){
+    const hosted = $('shareHostedUrl'); if(hosted){ const currentBase = /^(http|https):$/i.test(location.protocol) ? cleanHostedBase(location.href) : ''; if(currentBase && /github\.io$/i.test(location.hostname)) hosted.value = currentBase; else if(!hosted.value) hosted.value = localStorage.getItem('iwcf_hosted_platform_url') || currentBase || 'https://iadc-well-sharp-prep-record.web.app/'; }
+    renderRecordsDashboard();
+    if((location.search||'').includes('examId=') || (location.hash||'').startsWith('#exam=')) setTimeout(()=>{ try{ window.detectSharedExamLink(); }catch(e){ console.error(e); const err=$('sharedExamError'); if(err){ err.textContent='Shared-link runtime error: '+(e.message||e); err.classList.remove('hidden'); } } }, 250);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initV15); else initV15();
+  window.addEventListener('load', () => setTimeout(initV15, 500));
 })();
 </script>
 
