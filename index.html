@@ -6835,10 +6835,21 @@ d) Discuss the well control plan and reinforce individual crew duties
   .v25-score-col b { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); font-size:.62rem; color:#64748b; margin-bottom:.2rem; white-space:nowrap; }
   @media print { .app-shell-sidebar, header, .no-print, button { display:none!important; } #view-records, #view-review { position:static!important; display:block!important; overflow:visible!important; } }
 </style>
-<script id="v25-clean-dashboard-github-firestore">
+<script id="v28-final-github-firestore-shared-exam-routing">
+/* =========================================================
+   V28 FINAL PATCH - GitHub Pages + Cloud Firestore
+   Single clean compatibility layer for:
+   - Launch/sidebar tabs
+   - Dashboard category rendering
+   - Firestore exam package save/load using examPackages/{examId}
+   - Shared trainee link routing: ?examId=EX-...
+   - Trainee cover page with error handling/debug logs
+   - Training question renderer fallback
+   - Exam focus/fullscreen navigator with answer/time progress and 10-min warning
+   ========================================================= */
 (function(){
   'use strict';
-  const VERSION = 'v25-clean-v15-dashboard-github-firestore';
+  const VERSION = 'v28-github-firestore-shared-exam-routing-final';
   const FIREBASE_CONFIG = {
     apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
     authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
@@ -6850,26 +6861,68 @@ d) Discuss the well control plan and reinforce individual crew duties
   };
   window.IADC_FIREBASE_CONFIG = FIREBASE_CONFIG;
   const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const safeJson = (txt, fallback) => { try { return JSON.parse(txt); } catch(_) { return fallback; } };
-  const getBank = () => { try { return Array.isArray(BANK) ? BANK : []; } catch(_) { return []; } };
-  const getState = () => { try { return APP_STATE || {}; } catch(_) { return {}; } };
-  const note = (msg, ok=true) => { try { if(typeof qmStatus === 'function') qmStatus(msg, ok); else if(typeof status === 'function') status(msg, ok); } catch(_) {} };
-  const docSafeId = (s) => String(s || 'record').replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 900) || ('REC_' + Date.now());
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g,' ').replace(/\s+/g,' ').trim();
+  const state = () => { try { return APP_STATE; } catch(_) { return {}; } };
+  const ui = () => { try { return UI; } catch(_) { return {}; } };
+  const bank = () => { try { return Array.isArray(BANK) ? BANK : []; } catch(_) { return []; } };
+  const note = (msg, ok=true) => { try { if(typeof qmStatus === 'function') qmStatus(msg, ok); else console.log(msg); } catch(_) { console.log(msg); } };
+  const safeAlert = (msg) => { try { alert(msg); } catch(_) { console.warn(msg); } };
 
-  function waitForBankReady(timeoutMs=6000){
-    return new Promise(resolve => {
-      const start = Date.now();
-      const tick = () => {
-        const bank = getBank();
-        if(bank.length >= 400 || Date.now() - start > timeoutMs) return resolve(bank);
-        setTimeout(tick, 120);
-      };
-      tick();
-    });
+  function ensureStyle(){
+    if($('v28FinalCss')) return;
+    const css = document.createElement('style');
+    css.id = 'v28FinalCss';
+    css.textContent = `
+      body.shared-exam-landing{background:#020617!important;overflow:auto!important;}
+      body.shared-exam-landing header,body.shared-exam-landing main,body.shared-exam-landing .app-shell-sidebar,body.shared-exam-landing #entranceGateway{display:none!important;}
+      #sharedExamLanding:not(.hidden){display:block!important;}
+      #view-dashboard:not(.hidden){display:block!important;}
+      #view-training:not(.hidden){display:flex!important;flex-direction:row!important;}
+      #view-training:not(.hidden)>section{display:flex!important;flex:1 1 auto!important;min-width:0!important;width:auto!important;}
+      #categorySelectionContainer{max-height:none!important;height:auto!important;overflow:visible!important;}
+      .dashboard-category-card{height:auto!important;min-height:0!important;}
+      .v28-category-summary{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:1rem;padding:.75rem 1rem;margin-bottom:1rem;font-weight:900;color:#334155;}
+      .v28-mini-pill{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:.35rem .7rem;font-size:.72rem;font-weight:900;}
+      body.exam-focus{overflow:hidden!important;}
+      body.exam-focus #view-training{position:fixed!important;inset:0!important;z-index:220!important;display:flex!important;background:#fff!important;}
+      body.exam-focus .app-shell-sidebar, body.exam-focus header{display:none!important;}
+      body.exam-focus #trainingSidebar{display:none!important;}
+      body.exam-focus #examInlineNav{display:flex!important;position:relative!important;left:auto!important;top:auto!important;bottom:auto!important;width:270px!important;min-width:270px!important;height:100dvh!important;transform:none!important;z-index:230!important;}
+      body.exam-focus.exam-nav-collapsed #examInlineNav{display:none!important;}
+      body.exam-focus #questionScreen{max-width:none!important;width:100%!important;padding:1rem 1.25rem!important;}
+      body.exam-focus .exam-focus-toggle{display:flex!important;position:fixed!important;right:1rem!important;top:.75rem!important;z-index:260!important;}
+      .exam-qbtn{border:1px solid #334155;background:#0f172a;color:#cbd5e1;border-radius:.75rem;padding:.55rem .3rem;font-size:.72rem;font-weight:900;min-height:2.2rem;}
+      .exam-qbtn.active{background:#2563eb;color:#fff;border-color:#60a5fa;box-shadow:0 0 0 2px rgba(37,99,235,.25)}
+      .exam-qbtn.answered{background:#064e3b;color:#d1fae5;border-color:#10b981;}
+      .exam-qbtn.flagged{outline:2px solid #f59e0b;}
+      .exam-reminder{display:none;margin-top:.65rem;border-radius:.85rem;padding:.65rem;font-size:.75rem;font-weight:900;line-height:1.25;}
+      .exam-reminder.show{display:flex;gap:.45rem;align-items:flex-start;}
+      .v28-shared-loading{background:#eff6ff!important;color:#1e3a8a!important;border-color:#bfdbfe!important;}
+      .v28-shared-error{background:#fee2e2!important;color:#7f1d1d!important;border-color:#fecaca!important;}
+      @media (max-width: 900px){ body.exam-focus #examInlineNav{width:220px!important;min-width:220px!important;} body.exam-focus.exam-nav-collapsed #examInlineNav{display:none!important;} }
+    `;
+    document.head.appendChild(css);
   }
 
-  /* ---------------- Firestore REST backend, browser-safe for GitHub Pages ---------------- */
+  function normalizePublicUrl(input){
+    let raw = String(input || '').trim();
+    if(!raw){ raw = location.origin + location.pathname; }
+    try{
+      const u = new URL(raw, location.href);
+      u.search = ''; u.hash = '';
+      if(!/\.[a-z0-9]{2,8}$/i.test(u.pathname) && !u.pathname.endsWith('/')) u.pathname += '/';
+      return u.toString();
+    } catch(_){
+      raw = raw.split('#')[0].split('?')[0];
+      if(!/\.[a-z0-9]{2,8}$/i.test(raw) && !raw.endsWith('/')) raw += '/';
+      return raw;
+    }
+  }
+  window.getPlatformPublicUrl = function(){ return normalizePublicUrl($('shareHostedUrl')?.value || (location.origin + location.pathname)); };
+
+  /* ---------------- Firestore REST helpers (plain GitHub Pages safe) ---------------- */
   function fsBase(){ return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(FIREBASE_CONFIG.projectId)}/databases/(default)/documents`; }
   function fsUrl(col, id){ return `${fsBase()}/${encodeURIComponent(col)}${id ? '/' + encodeURIComponent(id) : ''}?key=${encodeURIComponent(FIREBASE_CONFIG.apiKey)}`; }
   function toFsValue(v){
@@ -6881,7 +6934,7 @@ d) Discuss the well control plan and reinforce individual crew duties
     if(typeof v === 'object') return { mapValue:{ fields:toFsFields(v) } };
     return { stringValue:String(v) };
   }
-  function toFsFields(obj){ const out={}; Object.entries(obj || {}).forEach(([k,v]) => { if(typeof v !== 'function') out[k]=toFsValue(v); }); return out; }
+  function toFsFields(obj){ const out={}; Object.entries(obj || {}).forEach(([k,v]) => { if(typeof v !== 'function') out[k] = toFsValue(v); }); return out; }
   function fromFsValue(v){
     if(!v || typeof v !== 'object') return null;
     if('nullValue' in v) return null;
@@ -6894,465 +6947,61 @@ d) Discuss the well control plan and reinforce individual crew duties
     if('mapValue' in v) return fromFsFields(v.mapValue.fields || {});
     return null;
   }
-  function fromFsFields(fields){ const out={}; Object.entries(fields || {}).forEach(([k,v]) => out[k]=fromFsValue(v)); return out; }
+  function fromFsFields(fields){ const out={}; Object.entries(fields || {}).forEach(([k,v]) => out[k] = fromFsValue(v)); return out; }
   async function fsSet(col, id, data){
     const res = await fetch(fsUrl(col, id), { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fields:toFsFields(data) }) });
-    if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message || ''; }catch(_){} throw new Error(`Firestore save failed (${res.status}) ${msg}`.trim()); }
+    if(!res.ok){ let msg = await res.text().catch(()=>res.statusText); try{ msg = JSON.parse(msg).error?.message || msg; }catch(_){} throw new Error(`Firestore ${col}/${id} save failed (${res.status}): ${String(msg).slice(0,300)}`); }
     return true;
   }
   async function fsGet(col, id){
     const res = await fetch(fsUrl(col, id), { method:'GET' });
     if(res.status === 404) return null;
-    if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message || ''; }catch(_){} throw new Error(`Firestore read failed (${res.status}) ${msg}`.trim()); }
-    const data = await res.json();
-    return fromFsFields(data.fields || {});
+    if(!res.ok){ let msg = await res.text().catch(()=>res.statusText); try{ msg = JSON.parse(msg).error?.message || msg; }catch(_){} throw new Error(`Firestore ${col}/${id} read failed (${res.status}): ${String(msg).slice(0,300)}`); }
+    const doc = await res.json();
+    return fromFsFields(doc.fields || {});
   }
   async function fsList(col){
     const res = await fetch(fsUrl(col), { method:'GET' });
     if(res.status === 404) return [];
-    if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message || ''; }catch(_){} throw new Error(`Firestore list failed (${res.status}) ${msg}`.trim()); }
+    if(!res.ok){ let msg = await res.text().catch(()=>res.statusText); try{ msg = JSON.parse(msg).error?.message || msg; }catch(_){} throw new Error(`Firestore ${col} list failed (${res.status}): ${String(msg).slice(0,300)}`); }
     const data = await res.json();
-    return (data.documents || []).map(d => ({ ...fromFsFields(d.fields || {}), _firestoreName:d.name }));
+    return (data.documents || []).map(d => ({...fromFsFields(d.fields || {}), _firestoreName:d.name}));
   }
+  window.IADC_FIREBASE = window.IADC_FIREBASE || {};
+  Object.assign(window.IADC_FIREBASE, { fsSet, fsGet, fsList, firebaseConfig:FIREBASE_CONFIG });
   window.IADC_FIRESTORE_REST = { fsSet, fsGet, fsList };
-  window.saveExamPackageToFirestore = async (payload) => {
-    if(!payload?.sessionId) throw new Error('Invalid exam package: missing sessionId.');
+  window.saveExamPackageToFirestore = async function(payload){
+    if(!payload || !payload.sessionId) throw new Error('Invalid exam package: missing sessionId.');
     await fsSet('examPackages', payload.sessionId, { ...payload, backend:'firestore-rest', platformVersion:VERSION, updatedAt:new Date().toISOString() });
     return true;
   };
-  window.loadExamPackageFromFirestore = async (examId) => {
+  window.loadExamPackageFromFirestore = async function(examId){
+    if(!examId) throw new Error('Missing examId in URL.');
     const payload = await fsGet('examPackages', examId);
-    if(!payload) throw new Error(`Exam package ${examId} was not found in Cloud Firestore.`);
+    console.log('Exists:', !!payload);
+    console.log('Data:', payload);
+    if(!payload) throw new Error(`Exam not found: ${examId}. Check Firestore collection examPackages and regenerate the link.`);
     return payload;
   };
-  window.saveRecordToFirestore = async (record) => {
-    if(!record?.sessionId) throw new Error('Invalid record: missing sessionId.');
-    const traineeKey = record.trainee?.email || record.trainee?.employeeId || record.trainee?.name || Date.now();
-    const id = docSafeId(`${record.sessionId}_${traineeKey}`);
+  window.saveRecordToFirestore = async function(record){
+    if(!record || !record.sessionId) throw new Error('Invalid exam record: missing sessionId.');
+    const who = record.trainee?.email || record.trainee?.employeeId || record.trainee?.name || Date.now();
+    const id = String(`${record.sessionId}_${who}`).replace(/[^A-Za-z0-9_.-]/g,'_').slice(0,900);
     await fsSet('examRecords', id, { ...record, recordKey:id, backend:'firestore-rest', updatedAt:new Date().toISOString() });
     return true;
   };
 
-  /* ---------------- Full dashboard renderer: no hidden internal scroll ---------------- */
-  function renderDashboardFull(){
-    const bank = getBank();
-    const container = $('categorySelectionContainer');
-    if(!container || !bank.length) return;
-    const groups = {};
-    bank.forEach((q, idx) => {
-      const main = q.mainCategory || 'Question Bank';
-      const sub = q.subCategory || q.topic || 'General';
-      (groups[main] ||= {});
-      (groups[main][sub] ||= []).push({ ...q, masterIndex:idx });
+  function waitForBankReady(timeoutMs=10000){
+    return new Promise(resolve => {
+      const started = Date.now();
+      const tick = () => {
+        const b = bank();
+        if(b.length >= 400 || Date.now() - started > timeoutMs) return resolve(b);
+        setTimeout(tick, 120);
+      };
+      tick();
     });
-    const totalSub = Object.values(groups).reduce((n, g) => n + Object.keys(g).length, 0);
-    let html = `<div id="dashboardQuestionCoverage" class="v25-category-summary"><div><span class="v25-mini-pill"><i class="ph-bold ph-check-circle"></i> Full Question Bank Loaded</span></div><div class="flex flex-wrap gap-2"><span class="v25-mini-pill">${bank.length} questions</span><span class="v25-mini-pill">${totalSub} topics</span><span class="v25-mini-pill" id="dashSelectedCountMini">${bank.length} selected</span></div></div>`;
-    Object.entries(groups).forEach(([mainCat, subCats]) => {
-      html += `<div class="mb-6"><h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">${esc(mainCat)}</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">`;
-      Object.entries(subCats).sort((a,b)=>b[1].length-a[1].length).forEach(([subCat, qs]) => {
-        html += `<label class="cat-label flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors shadow-sm" title="${esc(subCat)}"><div class="flex items-center gap-3 min-w-0"><input type="checkbox" value="${esc(subCat)}" class="cat-checkbox w-5 h-5 text-brand-600 rounded border-slate-300 focus:ring-brand-500" checked><span class="font-bold text-slate-700 text-sm truncate">${esc(subCat)}</span></div><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-black shadow-sm ml-2">${qs.length}</span></label>`;
-      });
-      html += `</div></div>`;
-    });
-    container.innerHTML = html;
-    container.classList.remove('overflow-y-auto','flex-grow');
-    const card = container.closest('.bg-white.rounded-2xl');
-    if(card){ card.classList.remove('h-[500px]','xl:h-[600px]'); card.classList.add('dashboard-category-card'); card.style.height='auto'; }
-    const tq=$('dashTotalQs'), tc=$('dashTotalCats'); if(tq) tq.textContent=String(bank.length); if(tc) tc.textContent=String(totalSub);
-    document.querySelectorAll('.cat-checkbox').forEach(cb => cb.addEventListener('change', updateDashboardCounts));
-    updateDashboardCounts();
   }
-  function updateDashboardCounts(){
-    const bank = getBank();
-    const selected = new Set(Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(cb => cb.value));
-    const count = bank.filter(q => selected.has(q.subCategory || q.topic || 'General')).length;
-    const mini = $('dashSelectedCountMini'); if(mini) mini.textContent = `${count} selected`;
-    try { if(typeof updateDashboardProgress === 'function') updateDashboardProgress(); } catch(_) {}
-  }
-  window.initDashboard = renderDashboardFull;
-  try { initDashboard = renderDashboardFull; } catch(_) {}
-  window.toggleAllCategories = function(state){ document.querySelectorAll('.cat-checkbox').forEach(cb => { cb.checked = !!state; }); updateDashboardCounts(); };
-  window.getDashboardSelectedQuestions = function(){
-    const selected = new Set(Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(cb => cb.value));
-    return getBank().filter(q => selected.has(q.subCategory || q.topic || 'General'));
-  };
-
-  /* ---------------- Navigation stability ---------------- */
-  function showView(tabId){
-    const ids = ['roadmap','dashboard','training','review','records'];
-    ids.forEach(id => {
-      const view = $(`view-${id}`);
-      if(view){ view.classList.toggle('hidden', id !== tabId); view.style.display = id === tabId ? '' : 'none'; }
-      const top = $(`tab-${id}`), side = $(`shell-tab-${id}`);
-      [top, side].forEach(btn => btn && btn.classList.toggle('active', id === tabId));
-    });
-    if(tabId === 'dashboard') setTimeout(renderDashboardFull, 50);
-    if(tabId === 'records') setTimeout(() => { renderRecordsDashboard(); pollExamRecordsNow().catch(()=>{}); }, 50);
-  }
-  window.switchTab = showView;
-  window.shellSwitch = showView;
-  window.launchApp = function(){
-    const gateway = $('entranceGateway');
-    if(gateway){ gateway.classList.add('hidden'); gateway.style.display='none'; gateway.style.opacity='0'; }
-    document.body.classList.add('app-pro-shell');
-    showView('dashboard');
-  };
-  function bindButton(id, fn){ const el=$(id); if(el && !el.dataset.v25Bound){ el.dataset.v25Bound='1'; el.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fn(e); }, true); } }
-  function setMode(mode){ const sel=$('modeSel'); if(sel){ sel.value = mode; try{ sel.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} } document.body.classList.toggle('exam-mode-shell', mode==='exam'); }
-  window.setShellMode = setMode;
-  function bindNavigation(){
-    bindButton('shell-tab-roadmap', () => showView('roadmap')); bindButton('shell-tab-dashboard', () => showView('dashboard')); bindButton('shell-tab-training', () => showView('training')); bindButton('shell-tab-review', () => showView('review')); bindButton('shell-tab-records', () => showView('records'));
-    bindButton('shellModePractice', () => setMode('practice')); bindButton('shellModeExam', () => setMode('exam'));
-    bindButton('shellRoleInstructor', () => { try{ if(typeof promptInstructorLogin === 'function') promptInstructorLogin(); else alert('Instructor login unavailable.'); }catch(e){ alert('Instructor login unavailable.'); } });
-    bindButton('shellRoleTrainee', () => { try{ if(typeof exitInstructorMode === 'function') exitInstructorMode(); }catch(_){} document.body.classList.remove('instructor-active'); });
-    const launch = document.querySelector('#entranceGateway button, [onclick*="launchApp"]');
-    if(launch && !launch.dataset.v25Bound){ launch.dataset.v25Bound='1'; launch.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); window.launchApp(); }, true); }
-  }
-
-  /* ---------------- Share exam link: short GitHub URL, Cloud Firestore package ---------------- */
-  function normalizeBaseUrl(raw){
-    raw = String(raw || '').trim();
-    if(!raw || raw.startsWith('file:')) return '';
-    let u; try{ u = new URL(raw, location.href); }catch(_){ return ''; }
-    u.search=''; u.hash='';
-    if(/github\.io$/i.test(u.hostname) && u.pathname && !u.pathname.endsWith('/') && !/\.html?$/i.test(u.pathname)) u.pathname += '/';
-    return u.toString();
-  }
-  window.getPlatformPublicUrl = function(){
-    const input = $('shareHostedUrl');
-    const typed = normalizeBaseUrl(input?.value || '');
-    const stored = normalizeBaseUrl(localStorage.getItem('iwcf_hosted_platform_url') || '');
-    const current = (location.protocol === 'http:' || location.protocol === 'https:') ? normalizeBaseUrl(location.href) : '';
-    const url = typed || stored || current || 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
-    if(input) input.value = url;
-    localStorage.setItem('iwcf_hosted_platform_url', url);
-    return url;
-  };
-  function normalizeGroup(v){ return String(v || '').trim() || 'Ungrouped'; }
-  function managerFilteredRows(){ try{ if(typeof getFilteredQuestionManagerRows === 'function') return getFilteredQuestionManagerRows(5000); }catch(_){} return getBank(); }
-  function previewRows(rows){ try{ if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); }catch(_){} }
-  window.packageQuestionsForLink = async function(rows, sourceLabel){
-    rows = Array.isArray(rows) ? rows : [];
-    if(!rows.length){ alert('No questions selected. Select one or more categories/questions first.'); return ''; }
-    const title = $('shareExamTitle')?.value?.trim() || 'WellSharp Practice Exam';
-    const groupName = normalizeGroup($('shareGroupName')?.value || 'Ungrouped');
-    const minutes = Math.max(1, parseInt($('shareExamMinutes')?.value || $('minutesInput')?.value || '60', 10));
-    const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
-    const refs = rows.map(q => q.orig);
-    const customQuestions = rows.filter(q => !(Number(q.orig) >= 1 && Number(q.orig) <= 402)).map(q => ({ ...q, visual: q.visual && String(q.visual.src || '').length > 180000 ? { ...q.visual, src:'' } : q.visual }));
-    const payload = { type:'iwcf-shared-exam', version:25, createdAt:new Date().toISOString(), sessionId, title, groupName, minutes, mode:'exam', shuffle:!!$('shareShuffle')?.checked, sourceLabel, refs, customQuestions, firestoreProject:FIREBASE_CONFIG.projectId };
-    const base = window.getPlatformPublicUrl();
-    const link = `${base}${base.includes('?') ? '&' : '?'}examId=${encodeURIComponent(sessionId)}`;
-    const out=$('shareLinkOutput'), stats=$('shareLinkStats');
-    if(out) out.textContent='Saving exam package to Cloud Firestore. Please wait...';
-    if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName}`;
-    previewRows(rows);
-    try{ if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); }catch(_){}
-    try{
-      await window.saveExamPackageToFirestore(payload);
-      window.GENERATED_EXAM_LINK = link; window.GENERATED_EXAM_PACKAGE = payload;
-      try { GENERATED_EXAM_LINK = link; GENERATED_EXAM_PACKAGE = payload; } catch(_) {}
-      if(out){ out.textContent = link; out.style.whiteSpace='pre-wrap'; out.style.wordBreak='break-all'; }
-      if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • Firestore session ${sessionId}`;
-      const badge=$('firebaseShareStatus'); if(badge){ badge.className='qm-firebase-badge qm-firebase-ok'; badge.innerHTML='<i class="ph-bold ph-cloud-check"></i> Firestore saved'; }
-      note('Working trainee link generated and saved to Cloud Firestore.');
-      return link;
-    } catch(e){
-      window.GENERATED_EXAM_LINK = ''; window.GENERATED_EXAM_PACKAGE = null;
-      if(out) out.textContent = 'No link generated because Cloud Firestore save failed. Confirm you are using Firestore Database rules, not Realtime Database rules. Error: ' + (e.message || e);
-      const badge=$('firebaseShareStatus'); if(badge){ badge.className='qm-firebase-badge qm-firebase-warn'; badge.innerHTML='<i class="ph-bold ph-cloud-warning"></i> Firestore save failed'; }
-      alert('Firestore save failed, so no trainee link was generated.\n\n' + (e.message || e));
-      return '';
-    }
-  };
-  window.generateExamLinkFromDashboardSelection = function(){
-    const st=getState(); if(st && st.instructorMode === false) return alert('Instructor login required.');
-    const rows = window.getDashboardSelectedQuestions();
-    if(!rows.length) return alert('Select one or more categories in the Dashboard first.');
-    return window.packageQuestionsForLink(rows, 'Dashboard selected categories');
-  };
-  window.generateExamLinkFromManagerFilters = function(){
-    const st=getState(); if(st && st.instructorMode === false) return alert('Instructor login required.');
-    const rows = managerFilteredRows();
-    if(!rows.length) return alert('No questions match the current Browse/Edit filters.');
-    return window.packageQuestionsForLink(rows, 'Question Manager filters');
-  };
-  window.copyGeneratedExamLink = function(){ const link = window.GENERATED_EXAM_LINK || ($('shareLinkOutput')?.textContent || '').trim(); if(!/^https?:\/\//i.test(link)) return alert('Generate a working link first.'); if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>note('Link copied.')).catch(()=>prompt('Copy trainee link:', link)); else prompt('Copy trainee link:', link); };
-  window.openGeneratedExamLink = function(){ const link = window.GENERATED_EXAM_LINK || ($('shareLinkOutput')?.textContent || '').trim(); if(!/^https?:\/\//i.test(link)) return alert('Generate a working link first.'); window.open(link, '_blank', 'noopener,noreferrer'); };
-  window.downloadExamPackage = function(){ const payload=window.GENERATED_EXAM_PACKAGE; if(!payload) return alert('Generate a link first.'); const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${payload.sessionId}_exam_package.json`; a.click(); URL.revokeObjectURL(a.href); };
-
-  /* ---------------- Trainee cover page and shared exam loader ---------------- */
-  function rowsForPayload(payload){
-    const bank = getBank().slice();
-    const existing = new Set(bank.map(q => String(q.orig)));
-    (payload.customQuestions || []).forEach(q => { if(q && !existing.has(String(q.orig))) bank.push(q); });
-    const byOrig = new Map(bank.map(q => [String(q.orig), q]));
-    return (payload.refs || []).map(r => byOrig.get(String(r))).filter(Boolean);
-  }
-  window.startSharedExamFromPayload = async function(payload){
-    await waitForBankReady();
-    const landing=$('sharedExamLanding'), err=$('sharedExamError');
-    document.body.classList.add('shared-exam-landing');
-    $('entranceGateway')?.classList.add('hidden');
-    if(landing) landing.classList.remove('hidden');
-    const rows = rowsForPayload(payload);
-    if(!rows.length){ if(err){ err.textContent='The exam package loaded, but no matching questions were found in this platform file. Ask the instructor to regenerate the link from the latest uploaded version.'; err.classList.remove('hidden'); } return; }
-    window.PENDING_SHARED_EXAM = { payload, rows };
-    try { PENDING_SHARED_EXAM = { payload, rows }; } catch(_) {}
-    const groupName = normalizeGroup(payload.groupName || 'Ungrouped');
-    if($('sharedExamTitleView')) $('sharedExamTitleView').textContent = payload.title || 'WellSharp Practice Exam';
-    if($('sharedGroupBadge')) $('sharedGroupBadge').innerHTML = `<i class="ph-bold ph-users-three"></i> Group: ${esc(groupName)}`;
-    if($('sharedStuGroup')) $('sharedStuGroup').value = groupName;
-    if($('sharedExamMeta')) $('sharedExamMeta').innerHTML = `<div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="text-slate-400 text-xs uppercase font-black">Questions</div><div class="text-2xl font-black">${rows.length}</div></div><div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="text-slate-400 text-xs uppercase font-black">Time Limit</div><div class="text-2xl font-black">${payload.minutes || 60} min</div></div><div class="bg-white/10 border border-white/10 rounded-2xl p-4 col-span-2"><div class="text-slate-400 text-xs uppercase font-black">Session ID</div><div class="text-sm font-black break-all">${esc(payload.sessionId || '-')}</div></div>`;
-    if(err) err.classList.add('hidden');
-    setTimeout(() => $('sharedStuName')?.focus(), 100);
-  };
-  window.beginSharedExamFromLanding = function(){
-    const pending = window.PENDING_SHARED_EXAM;
-    const err=$('sharedExamError'); if(err) err.classList.add('hidden');
-    if(!pending?.payload || !pending?.rows?.length){ if(err){ err.textContent='No exam package is loaded.'; err.classList.remove('hidden'); } return; }
-    const name=$('sharedStuName')?.value?.trim() || '', email=$('sharedStuEmail')?.value?.trim() || '';
-    if(!name || !email){ if(err){ err.textContent='Please enter your full name and email/employee ID.'; err.classList.remove('hidden'); } return; }
-    if($('sharedExamAgree') && !$('sharedExamAgree').checked){ if(err){ err.textContent='Please confirm the exam declaration before starting.'; err.classList.remove('hidden'); } return; }
-    const st = getState();
-    const group = normalizeGroup(pending.payload.groupName || $('sharedStuGroup')?.value);
-    st.studentInfo = { name, email, group, title:$('sharedStuTitle')?.value?.trim() || 'Rig Personnel', experience:$('sharedStuExp')?.value?.trim() || 'Not Provided', company:$('sharedStuCompany')?.value?.trim() || '', employeeId:$('sharedStuEmail')?.value?.trim() || '', rig:$('sharedStuRig')?.value?.trim() || '', mobile:$('sharedStuPhone')?.value?.trim() || '' };
-    st.sharedExam = { ...pending.payload, groupName:group, startedAt:new Date().toISOString() };
-    if($('modeSel')) $('modeSel').value = 'exam';
-    if($('minutesInput')) $('minutesInput').value = pending.payload.minutes || 60;
-    $('sharedExamLanding')?.classList.add('hidden');
-    document.body.classList.remove('shared-exam-landing');
-    $('entranceGateway')?.classList.add('hidden');
-    try { startSessionFromQuestionRows(pending.rows, { minutes:pending.payload.minutes || 60, shuffle:pending.payload.shuffle !== false, mode:'exam' }); }
-    catch(e){ if(err){ err.textContent='Could not start exam: ' + (e.message || e); err.classList.remove('hidden'); $('sharedExamLanding')?.classList.remove('hidden'); } }
-  };
-  window.detectSharedExamLink = async function(){
-    const examId = new URLSearchParams(location.search || '').get('examId');
-    if(!examId) return false;
-    $('entranceGateway')?.classList.add('hidden'); document.body.classList.add('shared-exam-landing'); $('sharedExamLanding')?.classList.remove('hidden');
-    const err=$('sharedExamError'); if(err){ err.textContent='Loading exam package from Cloud Firestore...'; err.classList.remove('hidden'); }
-    try{
-      await waitForBankReady();
-      const payload = await window.loadExamPackageFromFirestore(examId);
-      if(!payload || payload.type !== 'iwcf-shared-exam') throw new Error('Invalid exam package format.');
-      if(err) err.classList.add('hidden');
-      await window.startSharedExamFromPayload(payload);
-      return true;
-    } catch(e){
-      if(err){ err.textContent='Unable to load this exam link. Confirm Cloud Firestore Database is enabled, Firestore Rules allow reading examPackages, and generate a new link from the latest platform. Error: ' + (e.message || e); err.classList.remove('hidden'); }
-      console.error(e);
-      return false;
-    }
-  };
-
-  /* ---------------- Save records and dashboard reports ---------------- */
-  window.pushRecordToEndpoint = async function(record){
-    if(!record) return;
-    try { await window.saveRecordToFirestore(record); note('Record saved to Cloud Firestore.'); }
-    catch(e){ console.warn(e); note('Record saved locally, but Firestore save failed: ' + (e.message || e), false); }
-  };
-  const originalSubmit = window.submitSession;
-  window.submitSession = function(isTimeout=false){
-    const st=getState();
-    if(!isTimeout && !confirm('Are you sure you want to end the session and submit your answers?')) return;
-    try { clearInterval(st.timerId); st.status='review'; } catch(_) {}
-    try { if(st.instructorMode && typeof exitInstructorMode === 'function') exitInstructorMode(); } catch(_) {}
-    try { if(typeof exitExamFocusMode === 'function') exitExamFocusMode(false); } catch(_) {}
-    try { if(typeof buildReport === 'function') buildReport(isTimeout); } catch(e){ console.error(e); }
-    try { if(typeof buildCurrentExamRecord === 'function'){ const rec=buildCurrentExamRecord('submitted', isTimeout); if(typeof saveOrUpdateExamRecord === 'function') saveOrUpdateExamRecord(rec); window.pushRecordToEndpoint(rec); } } catch(e){ console.warn(e); }
-    try { if(typeof renderSidebarList === 'function') renderSidebarList(); } catch(_) {}
-    showView('review');
-  };
-  try { submitSession = window.submitSession; } catch(_) {}
-
-  function allRecords(){ try { return typeof getExamRecords === 'function' ? getExamRecords() : safeJson(localStorage.getItem('iwcf_exam_records') || '[]', []); } catch(_) { return []; } }
-  function setAllRecords(records){ try { if(typeof setExamRecords === 'function') setExamRecords(records); else localStorage.setItem('iwcf_exam_records', JSON.stringify(records.slice(-1000))); } catch(_){} }
-  function mergeRecords(incoming){
-    const map = new Map(allRecords().map(r => [`${r.sessionId}|${r.trainee?.email||''}|${r.trainee?.name||''}`, r]));
-    (incoming || []).forEach(r => map.set(`${r.sessionId}|${r.trainee?.email||''}|${r.trainee?.name||''}`, r));
-    const arr = Array.from(map.values()).sort((a,b)=>String(b.submittedAt||'').localeCompare(String(a.submittedAt||'')));
-    setAllRecords(arr); return arr;
-  }
-  window.pollExamRecordsNow = async function(){
-    const status=$('firebaseRecordsStatus') || $('recordDashboardFirebaseStatus');
-    try{
-      const recs = await fsList('examRecords');
-      mergeRecords(recs);
-      if(status) status.innerHTML = `<span class="qm-firebase-badge qm-firebase-ok"><i class="ph-bold ph-cloud-check"></i> Firestore synchronized</span><div class="mt-2">${recs.length} online record(s) loaded.</div>`;
-      try { if(typeof renderInstructorRecords === 'function') renderInstructorRecords(); } catch(_) {}
-      renderRecordsDashboard();
-      return recs;
-    } catch(e){
-      if(status) status.innerHTML = `<span class="qm-firebase-badge qm-firebase-warn"><i class="ph-bold ph-cloud-warning"></i> Firestore sync failed</span><div class="mt-2">${esc(e.message || e)}</div>`;
-      throw e;
-    }
-  };
-  function recordGroup(r){ return r.trainee?.group || r.groupName || r.sharedExam?.groupName || 'Ungrouped'; }
-  function filteredRecords(){
-    const group=$('recordsDashGroup')?.value || '', session=($('recordsDashSession')?.value || '').toLowerCase(), search=($('recordsDashSearch')?.value || '').toLowerCase(), status=$('recordsDashStatus')?.value || '';
-    return allRecords().filter(r => (!group || recordGroup(r) === group) && (!session || String(r.sessionId||'').toLowerCase().includes(session)) && (!status || String(r.status||'') === status) && (!search || `${r.trainee?.name||''} ${r.trainee?.email||''} ${r.trainee?.company||''} ${r.trainee?.rig||''}`.toLowerCase().includes(search)));
-  }
-  function pct(n){ return Math.max(0, Math.min(100, Number(n || 0))); }
-  window.renderRecordsDashboard = function(){
-    const records=allRecords(), filtered=filteredRecords();
-    const groups=[...new Set(records.map(recordGroup))].sort(); const groupSel=$('recordsDashGroup'); if(groupSel){ const val=groupSel.value; groupSel.innerHTML='<option value="">All groups</option>'+groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join(''); groupSel.value=val; }
-    const avg=filtered.length ? Math.round(filtered.reduce((s,r)=>s+Number(r.scorePct||0),0)/filtered.length) : 0;
-    const completed=filtered.filter(r=>r.status==='submitted' || r.status==='review').length;
-    const active=filtered.filter(r=>r.status==='active').length;
-    const cards=$('recordsSummaryCards'); if(cards) cards.innerHTML = `<div class="record-card"><div class="text-xs font-black text-slate-400 uppercase">Records</div><div class="text-3xl font-black text-slate-900">${filtered.length}</div></div><div class="record-card"><div class="text-xs font-black text-slate-400 uppercase">Average Score</div><div class="text-3xl font-black text-slate-900">${avg}%</div></div><div class="record-card"><div class="text-xs font-black text-slate-400 uppercase">Submitted</div><div class="text-3xl font-black text-success-700">${completed}</div></div><div class="record-card"><div class="text-xs font-black text-slate-400 uppercase">Active</div><div class="text-3xl font-black text-brand-700">${active}</div></div>`;
-    const statusBox=$('recordDashboardFirebaseStatus'); if(statusBox) statusBox.innerHTML = `<span class="qm-firebase-badge qm-firebase-ok"><i class="ph-bold ph-cloud-check"></i> Cloud Firestore mode</span><div class="mt-2">${filtered.length} visible of ${records.length} local/online records.</div>`;
-    const scoreBuckets=Array(10).fill(0); filtered.forEach(r => { scoreBuckets[Math.min(9, Math.floor(pct(r.scorePct)/10))]++; });
-    const maxBucket=Math.max(1,...scoreBuckets); const scoreChart=$('recordsScoreChart'); if(scoreChart) scoreChart.innerHTML = `<div class="v25-score-grid">${scoreBuckets.map((n,i)=>`<div class="v25-score-col" style="height:${Math.max(4,(n/maxBucket)*110)}px"><b>${n}</b></div>`).join('')}</div><div class="grid grid-cols-10 gap-1 mt-2 text-[10px] font-black text-slate-400 text-center">${scoreBuckets.map((_,i)=>`<span>${i*10}</span>`).join('')}</div>`;
-    const gapMap={}; filtered.forEach(r => (r.responses||[]).forEach(x => { if(!x.isCorrect){ const k=x.subCategory||'General'; (gapMap[k] ||= {wrong:0,total:0}); gapMap[k].wrong++; } const k=x.subCategory||'General'; (gapMap[k] ||= {wrong:0,total:0}); gapMap[k].total++; }));
-    const gaps=Object.entries(gapMap).map(([k,v])=>({k,wrong:v.wrong,total:v.total,pct:v.total?Math.round(v.wrong/v.total*100):0})).sort((a,b)=>b.pct-a.pct).slice(0,8);
-    const gapsBox=$('recordsGapChart'); if(gapsBox) gapsBox.innerHTML = gaps.length ? gaps.map(g=>`<div class="mb-3"><div class="flex justify-between text-xs font-black text-slate-600 mb-1"><span>${esc(g.k)}</span><span>${g.wrong}/${g.total} wrong</span></div><div class="v25-record-bar"><span style="width:${g.pct}%"></span></div></div>`).join('') : '<div class="text-sm font-bold text-slate-500">No gap data yet.</div>';
-    const list=$('recordsIndividualList'); if(list) list.innerHTML = filtered.length ? filtered.map((r,i)=>`<button onclick="showRecordsDashboardDetail(${i})" class="records-row w-full text-left"><div><div class="font-black text-slate-800">${esc(r.trainee?.name || 'Candidate')}</div><div class="text-xs font-bold text-slate-500">${esc(r.trainee?.email || '')}</div><div class="mt-1"><span class="record-group-pill">${esc(recordGroup(r))}</span></div></div><div class="text-xs font-bold text-slate-600">${esc(r.examTitle || '')}<br><span class="break-all">${esc(r.sessionId || '')}</span></div><div><div class="text-2xl font-black ${Number(r.scorePct||0)>=70?'text-success-700':'text-danger-700'}">${Number(r.scorePct||0)}%</div><div class="text-[10px] font-black text-slate-400">${r.correct||0}/${r.total||0} correct</div></div><div><span class="records-pill">${esc(r.status||'')}</span><div class="text-[10px] font-bold text-slate-400 mt-1">${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : ''}</div></div></button>`).join('') : '<div class="bg-white border border-slate-200 rounded-2xl p-5 text-sm font-bold text-slate-500">No records found.</div>';
-    const cnt=$('recordsIndividualCount'); if(cnt) cnt.textContent = `${filtered.length} shown`;
-    window.__V25_FILTERED_RECORDS = filtered;
-  };
-  window.showRecordsDashboardDetail = function(i){
-    const r=(window.__V25_FILTERED_RECORDS || [])[i]; const box=$('recordsDetailPanel'); if(!box || !r) return;
-    const wrong=(r.responses||[]).filter(x=>!x.isCorrect);
-    box.innerHTML = `<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3"><div><h3 class="text-xl font-black text-slate-900">${esc(r.trainee?.name || 'Candidate')}</h3><div class="text-sm font-bold text-slate-500">${esc(r.trainee?.email||'')} • ${esc(recordGroup(r))} • ${esc(r.trainee?.rig||'')}</div></div><button onclick="printSingleRecord(${i})" class="record-btn bg-slate-900 text-white"><i class="ph-bold ph-printer"></i> Print Individual Report</button></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-4"><div class="record-card"><div class="text-xs font-black text-slate-400">Score</div><div class="text-3xl font-black">${r.scorePct||0}%</div></div><div class="record-card"><div class="text-xs font-black text-slate-400">Correct</div><div class="text-3xl font-black">${r.correct||0}/${r.total||0}</div></div><div class="record-card"><div class="text-xs font-black text-slate-400">Answered</div><div class="text-3xl font-black">${r.answered||0}</div></div><div class="record-card"><div class="text-xs font-black text-slate-400">Open</div><div class="text-3xl font-black">${r.unanswered||0}</div></div></div><h4 class="font-black text-slate-800 mb-2">Wrong / Open Questions</h4><div class="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar">${wrong.slice(0,80).map(x=>`<div class="border border-slate-200 rounded-xl p-3"><div class="text-xs font-black text-slate-500">Q${x.sessionQuestion} • Ref ${x.ref} • ${esc(x.subCategory||'')}</div><div class="font-bold text-slate-800">${esc(x.prompt||'')}</div><div class="text-xs mt-1 text-slate-600"><b>Selected:</b> ${esc((x.selectedLetters||[]).join(', ') || 'Open')} • <b>Correct:</b> ${esc(x.correctLetter||'')}</div></div>`).join('') || '<div class="text-success-700 font-black">No wrong answers recorded.</div>'}</div>`;
-  };
-  window.clearRecordsFilters = function(){ ['recordsDashGroup','recordsDashSession','recordsDashSearch','recordsDashStatus'].forEach(id=>{ const el=$(id); if(el) el.value=''; }); renderRecordsDashboard(); };
-  window.exportFilteredRecordsCsv = function(){ const rows=window.__V25_FILTERED_RECORDS || filteredRecords(); const csv=['Name,Email,Group,Session,Exam,Score,Correct,Total,Answered,Status,Submitted'].concat(rows.map(r => [r.trainee?.name,r.trainee?.email,recordGroup(r),r.sessionId,r.examTitle,r.scorePct,r.correct,r.total,r.answered,r.status,r.submittedAt].map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='iwcf_filtered_records.csv'; a.click(); URL.revokeObjectURL(a.href); };
-  window.exportExamRecordsXls = function(){ window.exportFilteredRecordsCsv(); };
-  window.printRecordsDashboardReport = function(){ window.print(); };
-  window.printSingleRecord = function(i){ window.print(); };
-
-  function boot(){
-    bindNavigation();
-    const shareUrl=$('shareHostedUrl'); if(shareUrl && !shareUrl.value) shareUrl.value = window.getPlatformPublicUrl();
-    if(new URLSearchParams(location.search || '').get('examId')) window.detectSharedExamLink().catch(console.error);
-    else setTimeout(renderDashboardFull, 120);
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-  window.addEventListener('load', () => { bindNavigation(); if(!new URLSearchParams(location.search || '').get('examId')) renderDashboardFull(); });
-})();
-</script>
-<script>
-/* =========================================================
-   V26 FINAL SHARED-LINK FIX
-   Purpose: GitHub Pages + Cloud Firestore trainee links must never open blank.
-   - Always normalizes GitHub Pages project URL with trailing slash.
-   - Saves exam package to Cloud Firestore using SDK when available, REST fallback otherwise.
-   - Generated link contains ?examId=... and a #exam=... backup payload.
-   - Shared exam page shows a cover/loading/error page immediately, never a blank page.
-   ========================================================= */
-(function(){
-  'use strict';
-  const CFG = {
-    apiKey: 'AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0',
-    authDomain: 'iadc-well-sharp-prep-record.firebaseapp.com',
-    databaseURL: 'https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com',
-    projectId: 'iadc-well-sharp-prep-record',
-    storageBucket: 'iadc-well-sharp-prep-record.firebasestorage.app',
-    messagingSenderId: '697272682326',
-    appId: '1:697272682326:web:d95a0b7a0aa0d66ab978f7'
-  };
-  window.IADC_FIREBASE_CONFIG_FINAL = CFG;
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function safeAlert(msg){ try { alert(msg); } catch(_) { console.warn(msg); } }
-  function status(msg, ok=true){
-    try { if(typeof qmStatus === 'function') qmStatus(msg, ok); } catch(_) {}
-    const el = $('firebaseShareStatus');
-    if(el){ el.className = ok ? 'qm-firebase-badge qm-firebase-ok' : 'qm-firebase-badge qm-firebase-warn'; el.innerHTML = `<i class="ph-bold ${ok?'ph-cloud-check':'ph-cloud-warning'}"></i> ${esc(msg)}`; }
-  }
-  function normalizeHostedUrl(raw){
-    raw = String(raw || '').trim();
-    if(!raw || raw.startsWith('file:')) raw = 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
-    if(!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
-    let u;
-    try { u = new URL(raw, window.location.href); } catch(e) { return 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/'; }
-    u.search = ''; u.hash = '';
-    // GitHub project pages MUST keep the repository folder and MUST end with / before ?examId.
-    if(/github\.io$/i.test(u.hostname)){
-      if(!u.pathname || u.pathname === '/') u.pathname = '/IADC-Well-Sharp-Exam/';
-      if(!/\.[a-z0-9]{2,6}$/i.test(u.pathname) && !u.pathname.endsWith('/')) u.pathname += '/';
-    } else if(!/\.[a-z0-9]{2,6}$/i.test(u.pathname) && !u.pathname.endsWith('/')) {
-      u.pathname += '/';
-    }
-    return u.toString();
-  }
-  window.normalizeHostedUrlForIADC = normalizeHostedUrl;
-  const previousGetUrl = window.getPlatformPublicUrl;
-  window.getPlatformPublicUrl = function(){
-    const input = $('shareHostedUrl');
-    const typed = input && input.value ? input.value : '';
-    const stored = localStorage.getItem('iwcf_hosted_platform_url') || '';
-    const current = (location.protocol === 'http:' || location.protocol === 'https:') ? location.href : '';
-    const url = normalizeHostedUrl(typed || stored || current);
-    if(input) input.value = url;
-    localStorage.setItem('iwcf_hosted_platform_url', url);
-    return url;
-  };
-  function encodePayload(obj){
-    const json = JSON.stringify(obj);
-    return btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  function decodePayload(s){
-    s = String(s || '').replace(/-/g,'+').replace(/_/g,'/');
-    while(s.length % 4) s += '=';
-    return JSON.parse(decodeURIComponent(escape(atob(s))));
-  }
-  window.IADC_decodeSharedExamPayload = decodePayload;
-  function toFirestoreValue(v){
-    if(v === null || v === undefined) return { nullValue: null };
-    if(Array.isArray(v)) return { arrayValue: { values: v.map(toFirestoreValue) } };
-    if(typeof v === 'boolean') return { booleanValue: v };
-    if(typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-    if(typeof v === 'object') return { mapValue: { fields: toFirestoreFields(v) } };
-    return { stringValue: String(v) };
-  }
-  function toFirestoreFields(obj){
-    const fields = {};
-    Object.entries(obj || {}).forEach(([k,v]) => { fields[k] = toFirestoreValue(v); });
-    return fields;
-  }
-  function fromFirestoreValue(v){
-    if(!v || typeof v !== 'object') return undefined;
-    if('stringValue' in v) return v.stringValue;
-    if('integerValue' in v) return Number(v.integerValue);
-    if('doubleValue' in v) return Number(v.doubleValue);
-    if('booleanValue' in v) return !!v.booleanValue;
-    if('timestampValue' in v) return v.timestampValue;
-    if('nullValue' in v) return null;
-    if('arrayValue' in v) return (v.arrayValue.values || []).map(fromFirestoreValue);
-    if('mapValue' in v) return fromFirestoreFields(v.mapValue.fields || {});
-    return undefined;
-  }
-  function fromFirestoreFields(fields){
-    const out = {};
-    Object.entries(fields || {}).forEach(([k,v]) => { out[k] = fromFirestoreValue(v); });
-    return out;
-  }
-  async function restSaveExamPackage(payload){
-    const url = `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents/examPackages/${encodeURIComponent(payload.sessionId)}?key=${encodeURIComponent(CFG.apiKey)}`;
-    const res = await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fields: toFirestoreFields(payload) }) });
-    if(!res.ok){ const txt = await res.text().catch(()=>res.statusText); throw new Error(`Firestore REST save failed (${res.status}): ${txt.slice(0,300)}`); }
-    return true;
-  }
-  async function restLoadExamPackage(examId){
-    const url = `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents/examPackages/${encodeURIComponent(examId)}?key=${encodeURIComponent(CFG.apiKey)}`;
-    const res = await fetch(url, { method:'GET' });
-    if(!res.ok){ const txt = await res.text().catch(()=>res.statusText); throw new Error(`Firestore REST read failed (${res.status}): ${txt.slice(0,300)}`); }
-    const doc = await res.json();
-    return fromFirestoreFields(doc.fields || {});
-  }
-  const sdkSave = window.saveExamPackageToFirestore;
-  window.saveExamPackageToFirestore = async function(payload){
-    try { if(typeof sdkSave === 'function') return await sdkSave(payload); }
-    catch(e){ console.warn('SDK Firestore save failed; trying REST fallback:', e); }
-    return restSaveExamPackage(payload);
-  };
-  const sdkLoad = window.loadExamPackageFromFirestore;
-  window.loadExamPackageFromFirestore = async function(examId){
-    try { if(typeof sdkLoad === 'function') return await sdkLoad(examId); }
-    catch(e){ console.warn('SDK Firestore load failed; trying REST fallback:', e); }
-    return restLoadExamPackage(examId);
-  };
   function selectedCustomQuestions(rows){
     return (rows || []).filter(q => !(Number(q.orig) >= 1 && Number(q.orig) <= 402)).map(q => {
       const copy = {...q};
@@ -7360,12 +7009,121 @@ d) Discuss the well control plan and reinforce individual crew duties
       return copy;
     });
   }
-  function buildLink(base, sessionId, payload){
-    const main = `${base}${base.includes('?') ? '&' : '?'}examId=${encodeURIComponent(sessionId)}`;
-    const backup = encodePayload(payload);
-    // Keep backup in the same link when safe. Built-in 402-question links are normally small because only refs are included.
-    return (main.length + backup.length + 6 < 24000) ? `${main}#exam=${backup}` : main;
+  function resolveExamRows(payload){
+    const b = bank();
+    const rows = [];
+    const refs = Array.isArray(payload?.refs) ? payload.refs : [];
+    refs.forEach(ref => {
+      const found = b.find(q => String(q.orig) === String(ref));
+      if(found) rows.push({...found});
+    });
+    (payload?.customQuestions || []).forEach(q => rows.push({...q}));
+    return rows.map((q,i) => ({...q, sessionNum:i+1}));
   }
+  function showSharedExamError(msg, isLoading=false){
+    document.body.classList.add('shared-exam-landing');
+    $('entranceGateway')?.classList.add('hidden');
+    const landing = $('sharedExamLanding');
+    if(landing) landing.classList.remove('hidden');
+    const err = $('sharedExamError');
+    if(err){
+      err.textContent = msg;
+      err.classList.remove('hidden','v28-shared-loading','v28-shared-error');
+      err.classList.add(isLoading ? 'v28-shared-loading' : 'v28-shared-error');
+    } else {
+      console.warn(msg);
+    }
+  }
+  function hideSharedError(){ const err=$('sharedExamError'); if(err){ err.classList.add('hidden'); err.textContent=''; } }
+  function fillSharedLanding(payload, rows){
+    window.PENDING_SHARED_EXAM = { payload, rows };
+    const titleView = $('sharedExamTitleView'); if(titleView) titleView.textContent = payload.title || 'WellSharp Practice Exam';
+    const group = payload.groupName || payload.group || 'Ungrouped';
+    const badge = $('sharedGroupBadge'); if(badge) badge.innerHTML = `<i class="ph-bold ph-users-three"></i> Group: ${esc(group)}`;
+    const groupInput = $('sharedStuGroup'); if(groupInput) groupInput.value = group;
+    const meta = $('sharedExamMeta');
+    if(meta) meta.innerHTML = `
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="text-slate-400 text-xs uppercase font-black">Questions</div><div class="text-2xl font-black">${rows.length}</div></div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="text-slate-400 text-xs uppercase font-black">Time Limit</div><div class="text-2xl font-black">${Number(payload.minutes || 60)} min</div></div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-4 col-span-2"><div class="text-slate-400 text-xs uppercase font-black">Session ID</div><div class="text-sm font-black break-all">${esc(payload.sessionId || '-')}</div></div>`;
+    document.body.classList.add('shared-exam-landing');
+    $('entranceGateway')?.classList.add('hidden');
+    $('sharedExamLanding')?.classList.remove('hidden');
+    hideSharedError();
+  }
+
+  window.showError = function(msg){ showSharedExamError(msg, false); };
+  window.loadExamFromFirestore = async function(examId){
+    console.log('Exam ID:', examId);
+    showSharedExamError('Loading exam package from Cloud Firestore...', true);
+    await waitForBankReady();
+    try{
+      const payload = await window.loadExamPackageFromFirestore(examId);
+      if(!payload || payload.type !== 'iwcf-shared-exam') throw new Error('Invalid exam package format.');
+      const rows = resolveExamRows(payload);
+      if(!rows.length) throw new Error('Exam package loaded, but no matching questions were found in this platform file. Replace GitHub index.html with this latest file and regenerate the link.');
+      fillSharedLanding(payload, rows);
+      return payload;
+    } catch(err){
+      console.error(err);
+      showSharedExamError('Failed to load exam: ' + (err.message || err));
+      throw err;
+    }
+  };
+
+  window.detectSharedExamLink = async function(){
+    const params = new URLSearchParams(window.location.search);
+    const examId = params.get('examId');
+    if(!examId) return false;
+    document.body.classList.add('shared-exam-landing');
+    $('sharedExamLanding')?.classList.remove('hidden');
+    await window.loadExamFromFirestore(examId);
+    return true;
+  };
+
+  window.beginSharedExamFromLanding = function(){
+    const pending = window.PENDING_SHARED_EXAM;
+    const err = $('sharedExamError');
+    if(!pending || !pending.rows?.length){ showSharedExamError('Exam package is not ready yet. Refresh the trainee link or ask the instructor to regenerate it.'); return; }
+    const name = $('sharedStuName')?.value?.trim() || '';
+    const email = $('sharedStuEmail')?.value?.trim() || '';
+    if(!name || !email){ if(err){ err.textContent='Full name and email / employee ID are required.'; err.classList.remove('hidden','v28-shared-loading'); err.classList.add('v28-shared-error'); } return; }
+    if($('sharedExamAgree') && !$('sharedExamAgree').checked){ if(err){ err.textContent='Please confirm the exam declaration before starting.'; err.classList.remove('hidden','v28-shared-loading'); err.classList.add('v28-shared-error'); } return; }
+    const st = state();
+    const payload = pending.payload;
+    const groupName = $('sharedStuGroup')?.value?.trim() || payload.groupName || 'Ungrouped';
+    st.studentInfo = {
+      name,
+      email,
+      employeeId: email,
+      company: $('sharedStuCompany')?.value?.trim() || '',
+      rig: $('sharedStuRig')?.value?.trim() || '',
+      title: $('sharedStuTitle')?.value?.trim() || '',
+      experience: $('sharedStuExp')?.value?.trim() || '',
+      mobile: $('sharedStuPhone')?.value?.trim() || '',
+      group: groupName
+    };
+    st.sharedExam = { ...payload, groupName, startedAt:new Date().toISOString() };
+    if($('modeSel')) $('modeSel').value = 'exam';
+    if($('minutesInput')) $('minutesInput').value = Number(payload.minutes || 60);
+    $('sharedExamLanding')?.classList.add('hidden');
+    document.body.classList.remove('shared-exam-landing');
+    $('entranceGateway')?.classList.add('hidden');
+    window.startSessionFromQuestionRows(pending.rows, { mode:'exam', minutes:Number(payload.minutes || 60), shuffle:payload.shuffle !== false });
+  };
+
+  window.downloadPendingExamPackage = function(){
+    const payload = window.PENDING_SHARED_EXAM?.payload || window.GENERATED_EXAM_PACKAGE;
+    if(!payload) return safeAlert('No exam package is loaded yet.');
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${payload.sessionId || 'exam'}_exam_package.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  /* ---------------- Generate short Firestore trainee links ---------------- */
   window.packageQuestionsForLink = async function(rows, sourceLabel){
     rows = Array.isArray(rows) ? rows : [];
     if(!rows.length){ safeAlert('No questions selected. Select one or more categories/questions first.'); return ''; }
@@ -7374,41 +7132,45 @@ d) Discuss the well control plan and reinforce individual crew duties
     const minutes = Math.max(1, parseInt($('shareExamMinutes')?.value || $('minutesInput')?.value || '60', 10));
     const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
     const payload = {
-      type:'iwcf-shared-exam', version:26, createdAt:new Date().toISOString(), sessionId,
+      type:'iwcf-shared-exam', version:28, createdAt:new Date().toISOString(), sessionId,
       title, groupName, minutes, mode:'exam', shuffle:!!$('shareShuffle')?.checked,
-      sourceLabel: sourceLabel || 'Selected questions', refs: rows.map(q => q.orig),
-      customQuestions: selectedCustomQuestions(rows), firestoreProject: CFG.projectId
+      sourceLabel:sourceLabel || 'Selected questions', refs:rows.map(q => Number(q.orig || q.ref || q.sessionNum)).filter(Boolean),
+      customQuestions:selectedCustomQuestions(rows), firestoreProject:FIREBASE_CONFIG.projectId
     };
     const base = window.getPlatformPublicUrl();
-    const link = buildLink(base, sessionId, payload);
+    const link = `${base}${base.includes('?') ? '&' : '?'}examId=${encodeURIComponent(sessionId)}`;
     const out = $('shareLinkOutput'), stats = $('shareLinkStats');
     if(out){ out.textContent = 'Saving exam package to Cloud Firestore before generating trainee link...'; out.style.whiteSpace='pre-wrap'; out.style.wordBreak='break-all'; }
-    if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • saving...`;
-    try { if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); } catch(_) {}
-    try { if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(_) {}
-    try {
-      await window.saveExamPackageToFirestore(payload);
-      window.GENERATED_EXAM_LINK = link; window.GENERATED_EXAM_PACKAGE = payload;
-      try { GENERATED_EXAM_LINK = link; GENERATED_EXAM_PACKAGE = payload; } catch(_) {}
-      if(out) out.textContent = link;
-      if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • Firestore session ${sessionId}`;
-      status('Firestore saved. Trainee link is ready.', true);
-      return link;
-    } catch(e) {
-      // Still give a backup hash-only link that can open the exam cover page from GitHub if Firestore is temporarily blocked.
-      const fallback = `${base}#exam=${encodePayload(payload)}`;
-      window.GENERATED_EXAM_LINK = fallback; window.GENERATED_EXAM_PACKAGE = payload;
-      if(out) out.textContent = `Firestore save failed, but backup self-contained link was created. Fix Firestore rules before live records.\n\n${fallback}\n\nError: ${e.message || e}`;
-      if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • backup link only`;
-      status('Firestore save failed. Backup link generated; records may not sync.', false);
-      return fallback;
-    }
+    if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • saving to Firestore...`;
+    try{ if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(_) {}
+    try{ if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); } catch(_) {}
+    await window.saveExamPackageToFirestore(payload);
+    window.GENERATED_EXAM_LINK = link;
+    window.GENERATED_EXAM_PACKAGE = payload;
+    try{ GENERATED_EXAM_LINK = link; GENERATED_EXAM_PACKAGE = payload; } catch(_) {}
+    if(out) out.textContent = link;
+    if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • Firestore session ${sessionId}`;
+    const firebaseStatus = $('firebaseShareStatus');
+    if(firebaseStatus) firebaseStatus.innerHTML = '<i class="ph-bold ph-cloud-check"></i> Firestore saved';
+    note('Firestore saved. Trainee link is ready.', true);
+    return link;
+  };
+  window.generateExamLinkFromDashboardSelection = function(){
+    const rows = (typeof window.getDashboardSelectedQuestions === 'function') ? window.getDashboardSelectedQuestions() : bank();
+    return window.packageQuestionsForLink(rows, 'Dashboard selected categories');
+  };
+  window.generateExamLinkFromManagerFilters = function(){
+    let rows = [];
+    try { rows = (typeof getQuestionManagerRows === 'function') ? getQuestionManagerRows() : bank(); }
+    catch(_) { rows = bank(); }
+    if(!rows.length) return safeAlert('No questions match the current Browse/Edit filters.');
+    return window.packageQuestionsForLink(rows, 'Question Manager filters');
   };
   window.copyGeneratedExamLink = function(){
     const txt = (window.GENERATED_EXAM_LINK || $('shareLinkOutput')?.textContent || '').trim();
     const link = (txt.match(/https?:\/\/\S+/) || [txt])[0];
     if(!/^https?:\/\//i.test(link)) return safeAlert('Generate a working trainee link first.');
-    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>status('Link copied.', true)).catch(()=>prompt('Copy trainee link:', link));
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(link).then(()=>note('Link copied.', true)).catch(()=>prompt('Copy trainee link:', link));
     else prompt('Copy trainee link:', link);
   };
   window.openGeneratedExamLink = function(){
@@ -7417,266 +7179,202 @@ d) Discuss the well control plan and reinforce individual crew duties
     if(!/^https?:\/\//i.test(link)) return safeAlert('Generate a working trainee link first.');
     window.open(link, '_blank', 'noopener,noreferrer');
   };
-  function showLandingMessage(message, isError=false){
-    document.body.classList.add('shared-exam-landing');
-    $('entranceGateway')?.classList.add('hidden');
-    const landing = $('sharedExamLanding');
-    if(landing) landing.classList.remove('hidden');
-    const err = $('sharedExamError');
-    if(err){ err.textContent = message; err.classList.remove('hidden'); err.style.background = isError ? '#fee2e2' : '#eff6ff'; err.style.color = isError ? '#7f1d1d' : '#1e3a8a'; }
-  }
-  function tryHashPayload(){
-    const m = String(location.hash || '').match(/#exam=([^&]+)/);
-    if(!m) return null;
-    try { const payload = decodePayload(m[1]); return payload && payload.type === 'iwcf-shared-exam' ? payload : null; }
-    catch(e){ console.warn('Hash payload decode failed:', e); return null; }
-  }
-  async function callStartSharedExam(payload){
-    showLandingMessage('Preparing trainee cover page...');
-    const start = Date.now();
-    while(typeof window.startSharedExamFromPayload !== 'function'){
-      if(Date.now() - start > 12000) throw new Error('The platform exam loader did not initialize. Upload this v26 file as index.html and hard refresh GitHub Pages.');
-      await new Promise(r => setTimeout(r, 120));
-    }
-    await window.startSharedExamFromPayload(payload);
-  }
-  window.detectSharedExamLink = async function(){
-    const examId = new URLSearchParams(location.search || '').get('examId');
-    const hashPayload = tryHashPayload();
-    if(!examId && !hashPayload) return false;
-    showLandingMessage(examId ? 'Loading exam package from Cloud Firestore...' : 'Loading exam package from backup link...');
-    try {
-      let payload = hashPayload;
-      if(examId){
-        try { payload = await window.loadExamPackageFromFirestore(examId); }
-        catch(e){
-          if(hashPayload) { console.warn('Firestore load failed; using backup hash payload:', e); payload = hashPayload; }
-          else throw e;
-        }
-      }
-      if(!payload || payload.type !== 'iwcf-shared-exam') throw new Error('Invalid or empty exam package.');
-      await callStartSharedExam(payload);
-      return true;
-    } catch(e) {
-      showLandingMessage('Unable to open this exam link. Most likely causes: the old index.html is still cached on GitHub Pages, the link was generated by an old version, or Firestore rules are not published. Error: ' + (e.message || e), true);
-      console.error(e);
-      return false;
-    }
-  };
-  function bootV26(){
-    const shareUrl = $('shareHostedUrl');
-    if(shareUrl) shareUrl.value = window.getPlatformPublicUrl();
-    if(new URLSearchParams(location.search || '').get('examId') || String(location.hash || '').startsWith('#exam=')){
-      window.detectSharedExamLink().catch(e => showLandingMessage('Exam link startup error: ' + (e.message || e), true));
-    }
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootV26); else bootV26();
-  window.addEventListener('load', bootV26, { once:true });
-})();
-</script>
+  window.downloadExamPackage = window.downloadPendingExamPackage;
 
-<script id="v27-training-exam-render-fix">
-/* =========================================================
-   V27 TRAINING / EXAM RENDER FIX
-   Fixes blank Training Studio caused by late navigation patches showing
-   #view-training as a block instead of flex. Adds a robust fallback renderer,
-   exam fullscreen layout, live timing/progress pane, and 10-minute warning.
-   ========================================================= */
-(function(){
-  'use strict';
-  const $ = (id) => document.getElementById(id);
-  const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g,' ').replace(/\s+/g,' ').trim();
-  function state(){ try { return APP_STATE || {}; } catch(_) { return {}; } }
-  function ui(){ try { return UI || {}; } catch(_) { return {}; } }
-
-  function installCss(){
-    if($('v27TrainingExamCss')) return;
-    const css = document.createElement('style');
-    css.id = 'v27TrainingExamCss';
-    css.textContent = `
-      #view-training:not(.hidden){display:flex!important;flex-direction:row!important;}
-      #view-training:not(.hidden)>section{display:flex!important;flex:1 1 auto!important;min-width:0!important;width:auto!important;}
-      #view-training:not(.hidden) #questionScreen{display:flex!important;min-width:0!important;}
-      body.exam-focus{overflow:hidden!important;}
-      body.exam-focus #view-training{display:flex!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:90!important;background:#fff!important;}
-      body.exam-focus .app-sidebar, body.exam-focus header{display:none!important;}
-      body.exam-focus #trainingSidebar{display:none!important;}
-      body.exam-focus #examInlineNav{display:flex!important;left:14px!important;top:14px!important;bottom:14px!important;width:210px!important;z-index:120!important;}
-      body.exam-focus.exam-nav-collapsed #examInlineNav{display:none!important;}
-      body.exam-focus #view-training>section{margin-left:238px!important;width:calc(100vw - 238px)!important;height:100vh!important;overflow:auto!important;}
-      body.exam-focus.exam-nav-collapsed #view-training>section{margin-left:0!important;width:100vw!important;}
-      body.exam-focus #questionScreen{max-width:min(1180px,calc(100vw - 260px))!important;height:auto!important;min-height:100vh!important;padding:24px 26px 16px!important;}
-      body.exam-focus.exam-nav-collapsed #questionScreen{max-width:1180px!important;}
-      body.exam-focus .exam-focus-toggle{display:flex!important;}
-      .exam-qbtn{min-height:34px;border-radius:10px;border:1px solid rgba(148,163,184,.24);background:#172033;color:#cbd5e1;font-size:11px;font-weight:900;}
-      .exam-qbtn:hover{background:#1e293b;color:white;}
-      .exam-qbtn.active{background:#2563eb!important;color:white;border-color:#60a5fa;box-shadow:0 0 0 2px rgba(59,130,246,.25);}
-      .exam-qbtn.answered{background:#065f46;color:#d1fae5;border-color:#10b981;}
-      .exam-qbtn.flagged{outline:2px solid #f59e0b;}
-      .exam-reminder{display:none;margin-top:10px;padding:8px 10px;border-radius:12px;font-size:11px;font-weight:900;line-height:1.25;}
-      .exam-reminder.show{display:flex;gap:6px;align-items:flex-start;}
-      @media(max-width:900px){body.exam-focus #examInlineNav{width:164px!important;left:8px!important;top:8px!important;bottom:8px!important;}body.exam-focus #view-training>section{margin-left:180px!important;width:calc(100vw - 180px)!important;}body.exam-focus #questionScreen{max-width:calc(100vw - 190px)!important;padding:18px 12px!important;}.exam-qbtn{min-height:30px;font-size:10px;}}
-    `;
-    document.head.appendChild(css);
-  }
-
-  function forceTrainingLayout(){
-    installCss();
-    const view = $('view-training');
-    if(view && !view.classList.contains('hidden')){
-      view.style.display = 'flex';
-      view.classList.add('flex');
-      view.classList.remove('block');
-    }
-    const sec = view?.querySelector('section');
-    if(sec){ sec.style.display = 'flex'; sec.style.flex = '1 1 auto'; sec.style.minWidth = '0'; }
-    const screen = $('questionScreen');
-    if(screen){ screen.style.display = 'flex'; screen.style.minWidth = '0'; }
-    const overlay = $('notStartedOverlay');
-    const st = state();
-    if(overlay && st.status === 'active') overlay.classList.add('hidden');
-  }
-
-  function showView(tabId){
-    installCss();
-    const ids = ['roadmap','dashboard','training','review','records'];
-    ids.forEach(id => {
-      const view = $(`view-${id}`);
-      if(!view) return;
-      const active = id === tabId;
-      view.classList.toggle('hidden', !active);
-      view.classList.toggle('flex', active && id === 'training');
-      view.style.display = active ? (id === 'training' ? 'flex' : '') : 'none';
-      const top = $(`tab-${id}`), side = $(`shell-tab-${id}`);
-      [top, side].forEach(btn => btn && btn.classList.toggle('active', active));
+  /* ---------------- Dashboard and tabs ---------------- */
+  function renderDashboard(){
+    const b = bank();
+    const container = $('categorySelectionContainer');
+    if(!container || !b.length) return;
+    const groups = {};
+    b.forEach((q, idx) => { const main=q.mainCategory||'Question Bank', sub=q.subCategory||q.topic||'General'; ((groups[main] ||= {})[sub] ||= []).push({...q, masterIndex:idx}); });
+    const totalSub = Object.values(groups).reduce((n,g)=>n+Object.keys(g).length,0);
+    let html = `<div class="v28-category-summary"><div><span class="v28-mini-pill"><i class="ph-bold ph-check-circle"></i> Full Question Bank Loaded</span></div><div class="flex flex-wrap gap-2"><span class="v28-mini-pill">${b.length} questions</span><span class="v28-mini-pill">${totalSub} topics</span><span class="v28-mini-pill" id="dashSelectedCountMini">${b.length} selected</span></div></div>`;
+    Object.entries(groups).forEach(([main, subcats]) => {
+      html += `<div class="mb-6"><h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">${esc(main)}</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">`;
+      Object.entries(subcats).sort((a,b)=>b[1].length-a[1].length).forEach(([sub, qs]) => {
+        html += `<label class="cat-label flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors shadow-sm" title="${esc(sub)}"><div class="flex items-center gap-3 min-w-0"><input type="checkbox" value="${esc(sub)}" class="cat-checkbox w-5 h-5 text-brand-600 rounded border-slate-300 focus:ring-brand-500" checked><span class="font-bold text-slate-700 text-sm truncate">${esc(sub)}</span></div><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-black shadow-sm ml-2">${qs.length}</span></label>`;
+      });
+      html += `</div></div>`;
     });
-    if(tabId === 'dashboard') setTimeout(() => { try{ if(typeof initDashboard === 'function') initDashboard(); }catch(_){} }, 50);
-    if(tabId === 'training') { forceTrainingLayout(); setTimeout(() => { try{ if(state().session?.length) window.renderQuestion?.(); }catch(_){} forceTrainingLayout(); }, 60); }
-    if(tabId === 'records') setTimeout(() => { try{ window.renderRecordsDashboard?.(); window.pollExamRecordsNow?.().catch(()=>{}); }catch(_){} }, 80);
+    container.innerHTML = html;
+    const tq=$('dashTotalQs'), tc=$('dashTotalCats'); if(tq) tq.textContent=String(b.length); if(tc) tc.textContent=String(totalSub);
+    document.querySelectorAll('.cat-checkbox').forEach(cb => cb.addEventListener('change', updateDashboardSelectedCount));
+    updateDashboardSelectedCount();
   }
-  window.switchTab = showView; window.shellSwitch = showView; try{ switchTab = showView; shellSwitch = showView; }catch(_){}
-  window.launchApp = function(){ const g=$('entranceGateway'); if(g){ g.classList.add('hidden'); g.style.display='none'; g.style.opacity='0'; } document.body.classList.add('app-pro-shell'); showView('dashboard'); };
-  try{ launchApp = window.launchApp; }catch(_){}
+  function updateDashboardSelectedCount(){
+    const selected = new Set(Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(cb => cb.value));
+    const count = bank().filter(q => selected.has(q.subCategory || q.topic || 'General')).length;
+    const mini = $('dashSelectedCountMini'); if(mini) mini.textContent = `${count} selected`;
+    try{ if(typeof updateDashboardProgress === 'function') updateDashboardProgress(); }catch(_){}
+  }
+  window.initDashboard = renderDashboard; try{ initDashboard = renderDashboard; }catch(_){}
+  window.toggleAllCategories = function(checked){ document.querySelectorAll('.cat-checkbox').forEach(cb => cb.checked=!!checked); updateDashboardSelectedCount(); };
+  window.getDashboardSelectedQuestions = function(){ const selected = new Set(Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(cb => cb.value)); return bank().filter(q => selected.has(q.subCategory || q.topic || 'General')); };
+  function showView(tab){
+    const tabs = ['roadmap','dashboard','training','review','records'];
+    if(!tabs.includes(tab)) tab = 'dashboard';
+    tabs.forEach(id => {
+      const view = $(`view-${id}`); if(view){ view.classList.toggle('hidden', id!==tab); view.style.display = id===tab ? (id==='training'?'flex':'block') : 'none'; }
+      [`tab-${id}`,`shell-tab-${id}`].forEach(bid => $(bid)?.classList.toggle('active', id===tab));
+    });
+    if(tab === 'dashboard') setTimeout(renderDashboard, 80);
+    if(tab === 'records'){ setTimeout(() => { try{ window.renderRecordsDashboard?.(); }catch(_){} }, 80); }
+    if(tab === 'training') setTimeout(() => { forceTrainingLayout(); if(state().session?.length) renderQuestionSafe(); }, 80);
+  }
+  window.shellSwitch = showView;
+  window.switchTab = showView; try{ switchTab = showView; }catch(_){}
+  window.launchApp = function(){ $('entranceGateway')?.classList.add('hidden'); showView('dashboard'); setTimeout(renderDashboard, 80); };
+  function bindNav(){
+    const map = { roadmap:'roadmap', dashboard:'dashboard', training:'training', review:'review', records:'records' };
+    Object.entries(map).forEach(([id, tab]) => {
+      [`shell-tab-${id}`,`tab-${id}`].forEach(bid => { const el=$(bid); if(el && !el.dataset.v28nav){ el.dataset.v28nav='1'; el.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); showView(tab); }, true); } });
+    });
+    const launch = document.querySelector('#entranceGateway button, [onclick*="launchApp"]');
+    if(launch && !launch.dataset.v28launch){ launch.dataset.v28launch='1'; launch.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); window.launchApp(); }, true); }
+  }
 
-  function answerLetter(q){ return String.fromCharCode(65 + ((q?.answer || [0])[0] || 0)); }
-  function fallbackRenderQuestion(){
+  /* ---------------- Training / Exam rendering ---------------- */
+  function forceTrainingLayout(){
+    const v = $('view-training');
+    if(v && !v.classList.contains('hidden')){ v.style.display='flex'; v.style.flexDirection='row'; }
+    const section = v?.querySelector('section'); if(section){ section.style.display='flex'; section.style.flex='1 1 auto'; section.style.minWidth='0'; }
+  }
+  function buildSessionCategories(rows){
+    const st = state(); st.categories = {};
+    rows.forEach((q, index) => { const main=q.mainCategory||'Question Bank', sub=q.subCategory||'General'; ((st.categories[main] ||= {})[sub] ||= []).push({...q, globalIndex:index}); });
+  }
+  window.startSessionFromQuestionRows = function(rows, opts={}){
+    rows = Array.isArray(rows) ? rows : [];
+    if(!rows.length) return safeAlert('No questions available for this exam.');
     const st = state(); const U = ui();
-    const q = st.session?.[st.currentIdx || 0];
+    let session = rows.map((q,i) => ({...q, sessionNum:i+1}));
+    if(opts.shuffle){ for(let i=session.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [session[i],session[j]]=[session[j],session[i]]; } session = session.map((q,i)=>({...q,sessionNum:i+1})); }
+    st.session = session; st.currentIdx=0; st.status='active'; st.userAnswers={}; st.flagged={}; st.pendingKey=null;
+    buildSessionCategories(session);
+    const minutes = Math.max(1, Number(opts.minutes || $('minutesInput')?.value || 60));
+    st.totalTimeSeconds = minutes * 60; st.timeLeft = st.totalTimeSeconds;
+    if(U.modeSel) U.modeSel.value = 'exam'; if(U.minutesInput) U.minutesInput.value = minutes;
+    clearInterval(st.timerId);
+    st.timerId = setInterval(() => { if(st.status === 'active'){ st.timeLeft = Math.max(0, Number(st.timeLeft || 0) - 1); updateTimerDisplaySafe(); if(st.timeLeft <= 0) window.submitSession?.(true); } }, 1000);
+    $('notStartedOverlay')?.classList.add('hidden');
+    showView('training');
+    renderSidebarSafe(); renderQuestionSafe(); updateTimerDisplaySafe(); updateExamHud();
+    window.enterExamFocusMode();
+  };
+  const originalStartSessionCore = (typeof startSessionCore === 'function') ? startSessionCore : window.startSessionCore;
+  if(originalStartSessionCore){
+    window.startSessionCore = function(){ try{ originalStartSessionCore(); }catch(e){ console.warn('startSessionCore failed:', e); } setTimeout(()=>{ showView('training'); if(state().session?.length){ renderQuestionSafe(); if(($('modeSel')?.value||'') === 'exam') window.enterExamFocusMode(); } }, 120); };
+    try{ startSessionCore = window.startSessionCore; }catch(_){}
+  }
+  function answerLetter(q){ return (q.answer || []).map(i => String.fromCharCode(65 + Number(i))).join(', ') || '-'; }
+  function fallbackRenderQuestion(){
+    const st = state(); const q = st.session?.[st.currentIdx || 0];
     if(!q) return false;
-    const meta = $('metaTags');
-    if(meta) meta.innerHTML = `<span class="bg-slate-850 text-white px-3 py-1.5 rounded-lg text-sm font-black tracking-widest shadow-sm flex items-center gap-2">Question ${esc(q.sessionNum || ((st.currentIdx||0)+1))}<span class="text-[10px] text-slate-400 bg-slate-700 px-1.5 py-0.5 rounded font-medium">(Ref: PDF-${esc(q.orig)})</span></span><span class="bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-100 hidden sm:flex">${esc(q.mainCategory||'')} → ${esc(q.subCategory||q.topic||'')}</span>`;
-    const qt = $('questionText'); if(qt) qt.innerHTML = q.prompt || '';
-    const visualBox = $('graphicPlaceholderArea');
-    if(visualBox){
-      if(q.visual && q.visual.src) visualBox.innerHTML = `<figure class="question-visual bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 mb-6 shadow-sm"><figcaption class="text-sm font-black text-slate-700 mb-3">${esc(q.visual.title||'Question visual')}</figcaption><img src="${q.visual.src}" alt="${esc(q.visual.title||'Question visual')}" class="max-h-[44vh] w-auto max-w-full mx-auto rounded-xl border border-slate-100 object-contain bg-white"></figure>`;
-      else visualBox.innerHTML = '';
-    }
-    const choices = $('choicesContainer');
+    const meta=$('metaTags'); if(meta) meta.innerHTML = `<span class="bg-slate-850 text-white px-3 py-1.5 rounded-lg text-sm font-black tracking-widest shadow-sm">Question ${q.sessionNum || (st.currentIdx+1)} <span class="text-[10px] text-slate-400 bg-slate-700 px-1.5 py-0.5 rounded">Ref: PDF-${q.orig || '-'}</span></span><span class="bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-100">${esc(q.mainCategory||'')} → ${esc(q.subCategory||'')}</span>`;
+    const qt=$('questionText'); if(qt) qt.innerHTML = q.prompt || '';
+    const gp=$('graphicPlaceholderArea'); if(gp){ gp.innerHTML=''; if(q.visual?.src) gp.innerHTML = `<figure class="question-visual bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 mb-6 shadow-sm"><div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3"><figcaption class="text-sm font-black text-slate-700 flex items-center gap-2"><i class="ph-bold ph-image-square text-brand-600"></i>${esc(q.visual.title||'Question visual')}</figcaption><span class="text-[10px] font-black tracking-widest uppercase text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">PDF p.${esc(q.visual.page||'')}</span></div><img src="${q.visual.src}" alt="${esc(q.visual.title||'Question visual')}" class="max-h-[44vh] w-auto max-w-full mx-auto rounded-xl border border-slate-100 object-contain bg-white" /></figure>`; }
+    const choices=$('choicesContainer');
     if(choices){
       const selected = st.userAnswers?.[st.currentIdx] || [];
+      const isReview = st.status === 'review';
       choices.innerHTML = (q.choices || []).map((ch,i) => {
-        const picked = selected.includes(i), correct = (q.answer||[]).includes(i), review = st.status === 'review';
+        const picked = selected.includes(i), correct = (q.answer||[]).includes(i);
         let cls = `choice-card group flex items-start gap-4 p-5 border-2 rounded-2xl bg-white border-slate-200 ${picked?'selected':''}`;
-        if(review && correct) cls += ' correct-review';
-        if(review && picked && !correct) cls += ' wrong-review';
-        return `<label class="${cls}"><input type="radio" name="qchoice" class="sr-only" value="${i}" ${picked?'checked':''} ${review?'disabled':''}><div class="custom-input flex-shrink-0 mt-1"></div><div class="flex-grow text-slate-700 font-semibold text-base sm:text-lg leading-snug flex items-start"><span class="mr-3 font-black text-brand-600 w-6 flex-shrink-0">${String.fromCharCode(65+i)}.</span><span>${ch}</span></div></label>`;
+        if(isReview && correct) cls += ' correct-review';
+        if(isReview && picked && !correct) cls += ' wrong-review';
+        return `<label class="${cls}"><input type="radio" name="qchoice" class="sr-only" value="${i}" ${picked?'checked':''} ${isReview?'disabled':''}><div class="custom-input flex-shrink-0 mt-1"></div><div class="flex-grow text-slate-700 font-semibold text-base sm:text-lg leading-snug flex items-start"><span class="mr-3 font-black text-brand-600 w-6 flex-shrink-0">${String.fromCharCode(65+i)}.</span><span>${ch}</span></div></label>`;
       }).join('');
-      choices.querySelectorAll('input[name="qchoice"]').forEach(inp => inp.addEventListener('change', e => { if(st.status !== 'review'){ st.userAnswers[st.currentIdx] = [Number(e.target.value)]; renderQuestionSafe(); try{ window.renderSidebarList?.(); }catch(_){} } }));
+      choices.querySelectorAll('input[name="qchoice"]').forEach(inp => inp.addEventListener('change', e => { if(st.status !== 'review'){ st.userAnswers[st.currentIdx] = [Number(e.target.value)]; renderQuestionSafe(); renderSidebarSafe(); } }));
     }
-    const flag = $('flagBtn'); if(flag){ flag.onclick = () => { st.flagged[st.currentIdx] = !st.flagged[st.currentIdx]; renderQuestionSafe(); try{ window.renderSidebarList?.(); }catch(_){} }; }
-    const prev = $('prevBtn'); if(prev) prev.onclick = () => { if((st.currentIdx||0)>0) window.changeQuestion?.((st.currentIdx||0)-1); };
-    const next = $('nextBtn'); if(next) next.onclick = () => { if((st.currentIdx||0)<(st.session?.length||0)-1) window.changeQuestion?.((st.currentIdx||0)+1); };
-    const check = $('checkAnsBtn'); if(check) check.onclick = () => { const f=$('feedbackArea'), h=$('feedbackHeader'), b=$('feedbackBody'); if(f){ f.classList.remove('hidden'); f.classList.add('bg-brand-50','border-brand-200'); } if(h) h.innerHTML = '<i class="ph-fill ph-info"></i> Answer Key'; if(b) b.innerHTML = `<strong>Official Evaluation Key:</strong> Option ${answerLetter(q)}`; };
-    updateExamHud(); forceTrainingLayout(); return true;
+    const prev=$('prevBtn'); if(prev) prev.onclick = () => { if((st.currentIdx||0)>0) window.changeQuestion((st.currentIdx||0)-1); };
+    const next=$('nextBtn'); if(next) next.onclick = () => { if((st.currentIdx||0)<(st.session?.length||0)-1) window.changeQuestion((st.currentIdx||0)+1); };
+    const check=$('checkAnsBtn'); if(check) check.onclick = () => { const f=$('feedbackArea'), h=$('feedbackHeader'), b=$('feedbackBody'); if(f){ f.classList.remove('hidden'); f.classList.add('bg-brand-50','border-brand-200'); } if(h) h.innerHTML='<i class="ph-fill ph-info"></i> Answer Key'; if(b) b.innerHTML=`<strong>Official Evaluation Key:</strong> Option ${answerLetter(q)}`; };
+    updateExamHud(); return true;
   }
-  const originalRenderQuestion = window.renderQuestion || (typeof renderQuestion === 'function' ? renderQuestion : null);
+  const originalRenderQuestion = (typeof renderQuestion === 'function') ? renderQuestion : window.renderQuestion;
   function renderQuestionSafe(){
     forceTrainingLayout();
-    try { if(typeof originalRenderQuestion === 'function') originalRenderQuestion(); }
-    catch(e){ console.warn('Original renderQuestion failed; using fallback renderer.', e); fallbackRenderQuestion(); }
-    const hasText = !!(($('questionText')?.textContent || '').trim());
-    if(!hasText) fallbackRenderQuestion();
+    try{ if(typeof originalRenderQuestion === 'function') originalRenderQuestion(); } catch(e){ console.warn('Original renderQuestion failed; using fallback:', e); }
+    if(!(($('questionText')?.textContent || '').trim())) fallbackRenderQuestion();
     updateExamHud(); forceTrainingLayout();
   }
   window.renderQuestion = renderQuestionSafe; try{ renderQuestion = renderQuestionSafe; }catch(_){}
-
+  const originalRenderSidebar = (typeof renderSidebarList === 'function') ? renderSidebarList : window.renderSidebarList;
+  function renderSidebarSafe(){ try{ if(typeof originalRenderSidebar === 'function') originalRenderSidebar(); } catch(e){ console.warn('renderSidebarList failed:', e); } updateExamHud(); forceTrainingLayout(); }
+  window.renderSidebarList = renderSidebarSafe; try{ renderSidebarList = renderSidebarSafe; }catch(_){}
+  const originalChangeQuestion = (typeof changeQuestion === 'function') ? changeQuestion : window.changeQuestion;
+  window.changeQuestion = function(i){ const st=state(); st.currentIdx = Math.max(0, Math.min(Number(i)||0, (st.session?.length||1)-1)); try{ if(typeof originalChangeQuestion === 'function') originalChangeQuestion(st.currentIdx); else renderQuestionSafe(); } catch(e){ console.warn('changeQuestion failed:', e); renderQuestionSafe(); } updateExamHud(); forceTrainingLayout(); };
+  try{ changeQuestion = window.changeQuestion; }catch(_){}
   function updateExamHud(){
-    const st = state(); const total = st.session?.length || 0; const idx = st.currentIdx || 0;
+    const st = state(); const total=st.session?.length || 0; const idx=st.currentIdx || 0;
     const answered = Object.keys(st.userAnswers || {}).filter(k => st.userAnswers[k]?.length).length;
-    const ansPct = total ? Math.round(answered/total*100) : 0;
-    const cur = $('examNavCurrent'); if(cur) cur.textContent = `${total ? idx+1 : 0}/${total}`;
-    const a = $('examNavAnswered'); if(a) a.textContent = `${answered}/${total}`;
-    const bar = $('examNavProgressBar'); if(bar) bar.style.width = `${ansPct}%`;
-    const pa = $('progressAnswered'); if(pa) pa.textContent = answered;
-    const pt = $('progressTotal'); if(pt) pt.textContent = total;
-    const pad = $('progressAnsweredDetail'); if(pad) pad.textContent = answered;
-    const pu = $('progressUnanswered'); if(pu) pu.textContent = Math.max(0,total-answered);
-    const pbar = $('progressBar'); if(pbar) pbar.style.width = `${ansPct}%`;
-    const grid = $('examNavGrid');
-    if(grid){
-      const filter = norm($('examMiniSearch')?.value || '');
-      const rows = (st.session || []).map((q,i)=>({q,i})).filter(({q}) => !filter || norm(`${q.sessionNum} ${q.orig} ${q.prompt} ${(q.choices||[]).join(' ')} ${q.subCategory} ${q.mainCategory}`).includes(filter));
+    const ansPct = total ? Math.round(answered / total * 100) : 0;
+    const ids = { examNavCurrent:`${total?idx+1:0}/${total}`, examNavAnswered:`${answered}/${total}`, progressAnswered:answered, progressAnsweredDetail:answered, progressTotal:total, progressUnanswered:Math.max(0,total-answered) };
+    Object.entries(ids).forEach(([id,val]) => { const el=$(id); if(el) el.textContent=String(val); });
+    const bars = { examNavProgressBar:ansPct, progressBar:ansPct }; Object.entries(bars).forEach(([id,p]) => { const el=$(id); if(el) el.style.width=`${p}%`; });
+    const grid=$('examNavGrid'); if(grid){
+      const filter=norm($('examMiniSearch')?.value || '');
+      const rows=(st.session || []).map((q,i)=>({q,i})).filter(({q}) => !filter || norm(`${q.sessionNum} ${q.orig} ${q.prompt} ${(q.choices||[]).join(' ')} ${q.mainCategory} ${q.subCategory}`).includes(filter));
       grid.innerHTML = rows.map(({q,i}) => `<button class="exam-qbtn ${i===idx?'active':''} ${st.userAnswers?.[i]?.length?'answered':''} ${st.flagged?.[i]?'flagged':''}" onclick="changeQuestion(${i})" title="Q${q.sessionNum} / Ref ${q.orig}">${q.sessionNum}</button>`).join('') || '<div class="col-span-3 text-xs font-bold text-slate-400 p-3">No matching questions.</div>';
     }
     const seconds = Number(st.timeLeft || 0), totalSec = Number(st.totalTimeSeconds || 0);
-    const m = Math.floor(seconds/60), s = seconds%60, timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    ['timerDisplay','timerDisplayMobile','examNavTimer'].forEach(id => { const el=$(id); if(el) el.textContent = timeStr; });
-    const elapsed = totalSec ? Math.max(0, totalSec - seconds) : 0;
-    const timePctVal = totalSec ? Math.min(100, Math.round(elapsed/totalSec*100)) : 0;
-    const tp=$('examNavTimePct'); if(tp) tp.textContent = `${timePctVal}%`;
-    const tb=$('examNavTimeBar'); if(tb) tb.style.width = `${timePctVal}%`;
-    const reminder = $('examReminder');
+    const m=Math.floor(seconds/60), s=seconds%60, timeStr=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    ['timerDisplay','timerDisplayMobile','examNavTimer'].forEach(id => { const el=$(id); if(el) el.textContent=timeStr; });
+    const timePct = totalSec ? Math.min(100, Math.round((totalSec-seconds)/totalSec*100)) : 0;
+    const tp=$('examNavTimePct'); if(tp) tp.textContent=`${timePct}%`; const tb=$('examNavTimeBar'); if(tb) tb.style.width=`${timePct}%`;
+    const reminder=$('examReminder');
     if(reminder){
-      const show = (($('modeSel')?.value || '') === 'exam' || document.body.classList.contains('shared-exam-landing') === false) && seconds > 0 && seconds <= 600;
+      const show = (seconds > 0 && seconds <= 600 && (state().status === 'active'));
       reminder.classList.toggle('show', show);
       if(seconds <= 60) reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Final minute. Submit now if you are finished.';
       else if(seconds <= 300) reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Last 5 minutes. Prioritize open questions.';
-      else reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Last 10 minutes. Review flagged and unanswered questions.';
+      else reminder.innerHTML = '<i class="ph-fill ph-bell-ringing"></i> Last 10 minutes. Review open and flagged questions.';
     }
   }
   window.updateExamHud = updateExamHud;
-
-  const oldUpdateTimer = window.updateTimerDisplay || (typeof updateTimerDisplay === 'function' ? updateTimerDisplay : null);
-  window.updateTimerDisplay = function(){ try{ if(typeof oldUpdateTimer === 'function') oldUpdateTimer(); }catch(_){} updateExamHud(); };
-  try{ updateTimerDisplay = window.updateTimerDisplay; }catch(_){}
-  const oldUpdateSession = window.updateSessionProgress || (typeof updateSessionProgress === 'function' ? updateSessionProgress : null);
-  window.updateSessionProgress = function(){ try{ if(typeof oldUpdateSession === 'function') oldUpdateSession(); }catch(_){} updateExamHud(); };
+  const originalTimer = (typeof updateTimerDisplay === 'function') ? updateTimerDisplay : window.updateTimerDisplay;
+  function updateTimerDisplaySafe(){ try{ if(typeof originalTimer === 'function') originalTimer(); }catch(_){} updateExamHud(); }
+  window.updateTimerDisplay = updateTimerDisplaySafe; try{ updateTimerDisplay = updateTimerDisplaySafe; }catch(_){}
+  const originalSessionProgress = (typeof updateSessionProgress === 'function') ? updateSessionProgress : window.updateSessionProgress;
+  window.updateSessionProgress = function(){ try{ if(typeof originalSessionProgress === 'function') originalSessionProgress(); }catch(_){} updateExamHud(); };
   try{ updateSessionProgress = window.updateSessionProgress; }catch(_){}
-
-  const oldRenderSidebar = window.renderSidebarList || (typeof renderSidebarList === 'function' ? renderSidebarList : null);
-  window.renderSidebarList = function(){ try{ if(typeof oldRenderSidebar === 'function') oldRenderSidebar(); }catch(e){ console.warn('Sidebar render failed', e); } updateExamHud(); forceTrainingLayout(); };
-  try{ renderSidebarList = window.renderSidebarList; }catch(_){}
-  const oldChangeQuestion = window.changeQuestion || (typeof changeQuestion === 'function' ? changeQuestion : null);
-  window.changeQuestion = function(i){ const st=state(); st.currentIdx = Math.max(0, Math.min(Number(i)||0, (st.session?.length||1)-1)); try{ if(typeof oldChangeQuestion === 'function') oldChangeQuestion(st.currentIdx); else renderQuestionSafe(); }catch(e){ console.warn('changeQuestion fallback', e); renderQuestionSafe(); } updateExamHud(); forceTrainingLayout(); };
-  try{ changeQuestion = window.changeQuestion; }catch(_){}
-
-  window.enterExamFocusMode = function(){
-    installCss(); forceTrainingLayout();
-    document.body.classList.add('exam-focus');
-    document.body.classList.remove('exam-nav-collapsed');
-    const txt=$('examFocusBtnText'); if(txt) txt.textContent='HIDE NAVIGATOR';
-    updateExamHud(); renderQuestionSafe();
-    try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{}); }catch(_){}
-  };
+  window.enterExamFocusMode = function(){ ensureStyle(); forceTrainingLayout(); document.body.classList.add('exam-focus'); document.body.classList.remove('exam-nav-collapsed'); const t=$('examFocusBtnText'); if(t) t.textContent='HIDE NAVIGATOR'; updateExamHud(); try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{}); }catch(_){} };
   try{ enterExamFocusMode = window.enterExamFocusMode; }catch(_){}
   window.exitExamFocusMode = function(exitFull=true){ document.body.classList.remove('exam-focus','exam-nav-collapsed','show-question-nav'); try{ if(exitFull && document.fullscreenElement) document.exitFullscreen?.().catch(()=>{}); }catch(_){} forceTrainingLayout(); };
   try{ exitExamFocusMode = window.exitExamFocusMode; }catch(_){}
-  window.toggleExamFocusNav = function(){ document.body.classList.toggle('exam-nav-collapsed'); const txt=$('examFocusBtnText'); if(txt) txt.textContent = document.body.classList.contains('exam-nav-collapsed') ? 'OPEN NAVIGATOR' : 'HIDE NAVIGATOR'; updateExamHud(); };
+  window.toggleExamFocusNav = function(){ document.body.classList.toggle('exam-nav-collapsed'); const t=$('examFocusBtnText'); if(t) t.textContent = document.body.classList.contains('exam-nav-collapsed') ? 'OPEN NAVIGATOR' : 'HIDE NAVIGATOR'; updateExamHud(); };
   try{ toggleExamFocusNav = window.toggleExamFocusNav; }catch(_){}
 
-  const oldStartCore = window.startSessionCore || (typeof startSessionCore === 'function' ? startSessionCore : null);
-  if(oldStartCore){ window.startSessionCore = function(){ oldStartCore(); setTimeout(() => { showView('training'); renderQuestionSafe(); if(($('modeSel')?.value || '') === 'exam') window.enterExamFocusMode(); }, 80); }; try{ startSessionCore = window.startSessionCore; }catch(_){} }
-  const oldRows = window.startSessionFromQuestionRows || (typeof startSessionFromQuestionRows === 'function' ? startSessionFromQuestionRows : null);
-  if(oldRows){ window.startSessionFromQuestionRows = function(rows, opts={}){ oldRows(rows, opts); setTimeout(() => { showView('training'); renderQuestionSafe(); window.enterExamFocusMode(); }, 80); }; try{ startSessionFromQuestionRows = window.startSessionFromQuestionRows; }catch(_){} }
+  /* ---------------- Record sync/list ---------------- */
+  window.pollExamRecordsNow = async function(){
+    try{
+      const recs = await fsList('examRecords');
+      const local = JSON.parse(localStorage.getItem('iwcf_exam_records') || '[]');
+      const map = new Map();
+      [...local, ...recs].forEach(r => map.set(r.recordKey || `${r.sessionId}_${r.trainee?.email || r.trainee?.name || Math.random()}`, r));
+      localStorage.setItem('iwcf_exam_records', JSON.stringify(Array.from(map.values())));
+      try{ window.renderRecordsDashboard?.(); }catch(_){}
+      const status = $('recordDashboardFirebaseStatus') || $('firebaseRecordsStatus');
+      if(status) status.innerHTML = `<span class="qm-firebase-badge qm-firebase-ok"><i class="ph-bold ph-cloud-check"></i> Firestore synchronized</span><div class="mt-2">${recs.length} online record(s) loaded.</div>`;
+      return recs;
+    } catch(e){ const status = $('recordDashboardFirebaseStatus') || $('firebaseRecordsStatus'); if(status) status.innerHTML = `<span class="qm-firebase-badge qm-firebase-warn"><i class="ph-bold ph-cloud-warning"></i> Firestore sync failed</span><div class="mt-2">${esc(e.message||e)}</div>`; throw e; }
+  };
+  const originalSubmit = (typeof submitSession === 'function') ? submitSession : window.submitSession;
+  window.pushRecordToEndpoint = async function(record){ try{ await window.saveRecordToFirestore(record); note('Record saved to Cloud Firestore.', true); }catch(e){ console.warn(e); note('Record saved locally, but Firestore save failed: ' + (e.message || e), false); } };
 
-  document.addEventListener('DOMContentLoaded', () => {
-    installCss();
+  function boot(){
+    ensureStyle(); bindNav();
+    const shareUrl = $('shareHostedUrl'); if(shareUrl && !shareUrl.value) shareUrl.value = window.getPlatformPublicUrl();
     $('examMiniSearch')?.addEventListener('input', updateExamHud);
-    document.querySelectorAll('#shell-tab-training,[onclick*="training"]').forEach(el => el.addEventListener('click', () => setTimeout(forceTrainingLayout, 50), true));
-  });
-  window.addEventListener('load', () => { installCss(); forceTrainingLayout(); updateExamHud(); });
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('examId')) window.detectSharedExamLink().catch(e => console.error('Shared exam routing failed:', e));
+    else setTimeout(renderDashboard, 120);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  window.addEventListener('load', () => { boot(); if(state().session?.length) { renderQuestionSafe(); updateExamHud(); } });
 })();
 </script>
+
 </body>
 </html>
