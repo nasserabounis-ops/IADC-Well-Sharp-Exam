@@ -8149,266 +8149,112 @@ import { getFirestore, doc, setDoc, getDoc, collection, getDocs, serverTimestamp
 })();
 </script>
 
-<!-- ================================================================
-     v32 FINAL SHARED EXAM ROUTER
-     Purpose: Fix blank trainee exam links on GitHub Pages by using an
-     independent Firestore REST loader and a standalone cover-page UI.
-     This does not depend on the older duplicated shared-link handlers.
-================================================================ -->
-<style id="iadc-v32-shared-route-style">
-  body.iadc-v32-shared-active { background:#020617 !important; overflow:auto !important; }
-  body.iadc-v32-shared-active > *:not(#iadcV32SharedRoot):not(script):not(style) { display:none !important; }
-  #iadcV32SharedRoot { position:fixed; inset:0; z-index:999999; overflow:auto; background:radial-gradient(circle at 10% 10%,rgba(37,99,235,.30),transparent 33%),radial-gradient(circle at 90% 15%,rgba(16,185,129,.20),transparent 35%),#020617; color:#0f172a; font-family:Inter,Arial,sans-serif; }
-  #iadcV32SharedRoot .v32-shell { min-height:100%; display:flex; align-items:center; justify-content:center; padding:20px; }
-  #iadcV32SharedRoot .v32-card { width:min(1120px,100%); background:rgba(255,255,255,.98); border:1px solid rgba(226,232,240,.9); border-radius:32px; overflow:hidden; box-shadow:0 35px 100px rgba(2,6,23,.45); }
-  #iadcV32SharedRoot .v32-grid { display:grid; grid-template-columns: 0.86fr 1.14fr; min-height:620px; }
-  #iadcV32SharedRoot .v32-left { background:#020617; color:white; padding:34px; display:flex; flex-direction:column; justify-content:space-between; gap:26px; }
-  #iadcV32SharedRoot .v32-badge { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:8px 12px; background:rgba(16,185,129,.14); color:#86efac; border:1px solid rgba(74,222,128,.25); font-weight:900; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
-  #iadcV32SharedRoot h1 { margin:16px 0 10px; font-size:38px; line-height:1.02; font-weight:950; letter-spacing:-.04em; }
-  #iadcV32SharedRoot .v32-muted { color:#cbd5e1; font-size:15px; line-height:1.65; font-weight:650; }
-  #iadcV32SharedRoot .v32-meta { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  #iadcV32SharedRoot .v32-meta-box { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.10); border-radius:18px; padding:16px; }
-  #iadcV32SharedRoot .v32-meta-label { color:#94a3b8; font-size:11px; font-weight:950; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; }
-  #iadcV32SharedRoot .v32-meta-value { color:white; font-size:22px; font-weight:950; word-break:break-word; }
-  #iadcV32SharedRoot .v32-right { padding:32px; }
-  #iadcV32SharedRoot .v32-title { font-size:28px; font-weight:950; color:#0f172a; margin:0 0 6px; }
-  #iadcV32SharedRoot .v32-sub { color:#64748b; font-size:14px; font-weight:750; margin-bottom:22px; line-height:1.6; }
-  #iadcV32SharedRoot .v32-form { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  #iadcV32SharedRoot .v32-full { grid-column:1 / -1; }
-  #iadcV32SharedRoot label { display:block; font-size:11px; color:#64748b; font-weight:950; text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
-  #iadcV32SharedRoot input { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; background:#f8fafc; border-radius:15px; padding:13px 14px; font-size:15px; font-weight:800; color:#0f172a; outline:none; }
-  #iadcV32SharedRoot input:focus { background:white; border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.12); }
-  #iadcV32SharedRoot input[readonly] { background:#f1f5f9; color:#475569; }
-  #iadcV32SharedRoot .v32-rules { margin-top:18px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:20px; padding:16px; }
-  #iadcV32SharedRoot .v32-rules h3 { margin:0 0 9px; font-size:16px; color:#0f172a; font-weight:950; }
-  #iadcV32SharedRoot .v32-rules ul { margin:0; padding-left:20px; color:#475569; font-size:13px; line-height:1.6; font-weight:750; }
-  #iadcV32SharedRoot .v32-agree { display:flex; align-items:flex-start; gap:10px; color:#334155; font-size:14px; font-weight:900; margin-top:12px; }
-  #iadcV32SharedRoot .v32-agree input { width:18px; height:18px; flex:0 0 auto; margin-top:2px; accent-color:#2563eb; }
-  #iadcV32SharedRoot .v32-msg { margin-top:16px; border-radius:16px; padding:13px 14px; font-size:13px; font-weight:900; line-height:1.5; }
-  #iadcV32SharedRoot .v32-msg.loading { background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
-  #iadcV32SharedRoot .v32-msg.err { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
-  #iadcV32SharedRoot .v32-actions { display:flex; gap:12px; margin-top:20px; }
-  #iadcV32SharedRoot button { cursor:pointer; border:0; border-radius:18px; padding:14px 20px; font-size:15px; font-weight:950; }
-  #iadcV32SharedRoot .v32-start { flex:1; background:#2563eb; color:white; box-shadow:0 16px 30px rgba(37,99,235,.22); }
-  #iadcV32SharedRoot .v32-download { background:#e2e8f0; color:#0f172a; }
-  @media(max-width:900px){ #iadcV32SharedRoot .v32-grid{grid-template-columns:1fr;} #iadcV32SharedRoot h1{font-size:30px;} #iadcV32SharedRoot .v32-form{grid-template-columns:1fr;} }
+
+
+<!-- v33 final patch: selected categories, standalone shared link cover, exit without record -->
+<style>
+  .v33-share-cat-panel{border:1px solid #dbe3ef;background:#f8fafc;border-radius:16px;padding:12px;margin:10px 0;}
+  .v33-share-cat-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+  .v33-share-cat-title{font-size:12px;font-weight:950;text-transform:uppercase;letter-spacing:.12em;color:#475569;}
+  .v33-share-cat-tools{display:flex;flex-wrap:wrap;gap:6px;}
+  .v33-mini-btn{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:10px;padding:6px 8px;font-size:10px;font-weight:900;letter-spacing:.03em;}
+  .v33-mini-btn:hover{background:#e0f2fe;}
+  .v33-share-cat-list{max-height:220px;overflow:auto;display:grid;grid-template-columns:1fr;gap:6px;padding-right:4px;}
+  .v33-share-cat-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px 10px;font-size:12px;font-weight:800;color:#334155;}
+  .v33-share-cat-item input{width:16px;height:16px;accent-color:#2563eb;}
+  .v33-share-count{font-size:11px;font-weight:950;color:#0f172a;background:#e0f2fe;border:1px solid #bae6fd;border-radius:999px;padding:4px 8px;white-space:nowrap;}
+  .v33-exit-btn{background:#fff1f2!important;border:1px solid #fecdd3!important;color:#be123c!important;font-weight:950!important;}
+  .v33-exit-btn:hover{background:#ffe4e6!important;}
+  body.exam-focus #v33ExitTopBtn{display:inline-flex!important;}
+  body.iadc-v33-shared-active > *:not(#iadcV33SharedRoot){display:none!important;}
+  #iadcV33SharedRoot{position:fixed;inset:0;z-index:999999;background:radial-gradient(circle at 18% 12%, rgba(37,99,235,.28), transparent 32%),radial-gradient(circle at 88% 20%, rgba(16,185,129,.18), transparent 34%),#020617;overflow:auto;padding:24px;font-family:Inter,Arial,sans-serif;color:#0f172a;}
+  .v33-shell{max-width:1180px;margin:0 auto;min-height:100%;display:flex;align-items:center;justify-content:center;}
+  .v33-card{width:100%;background:#fff;border-radius:30px;box-shadow:0 30px 100px rgba(0,0,0,.35);overflow:hidden;}
+  .v33-grid{display:grid;grid-template-columns:minmax(280px,.88fr) minmax(320px,1.12fr);}
+  .v33-left{background:#0f172a;color:#fff;padding:42px;display:flex;flex-direction:column;justify-content:space-between;gap:30px;}
+  .v33-right{padding:38px;}
+  .v33-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);color:#86efac;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px;}
+  .v33-left h1{font-size:34px;line-height:1.05;font-weight:950;margin:0 0 14px;}
+  .v33-muted{color:#cbd5e1;font-weight:650;line-height:1.65;}
+  .v33-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
+  .v33-meta-box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;}
+  .v33-meta-label{font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:#94a3b8;font-weight:900;}
+  .v33-meta-value{font-size:22px;font-weight:950;color:white;margin-top:4px;word-break:break-word;}
+  .v33-title{font-size:26px;font-weight:950;color:#0f172a;margin:0 0 6px;}
+  .v33-sub{font-size:14px;color:#64748b;font-weight:700;margin:0 0 20px;line-height:1.55;}
+  .v33-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .v33-form label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#64748b;font-weight:950;margin-bottom:6px;}
+  .v33-form input{width:100%;border:1px solid #cbd5e1;background:#f8fafc;border-radius:14px;padding:13px 14px;font-size:15px;font-weight:750;outline:none;}
+  .v33-form input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);background:white;}
+  .v33-rules{margin-top:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:16px;}
+  .v33-rules h3{font-size:15px;font-weight:950;margin:0 0 8px;}
+  .v33-rules ul{margin:0 0 12px 18px;padding:0;color:#334155;font-size:13px;font-weight:700;line-height:1.55;}
+  .v33-agree{display:flex;gap:10px;align-items:flex-start;font-size:13px;font-weight:900;color:#0f172a;}
+  .v33-agree input{width:18px;height:18px;margin-top:2px;accent-color:#2563eb;}
+  .v33-msg{margin-top:16px;border-radius:16px;padding:13px 14px;font-size:13px;font-weight:900;line-height:1.45;}
+  .v33-msg.loading{background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;}
+  .v33-msg.err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;}
+  .v33-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
+  .v33-start,.v33-download{border:0;border-radius:16px;padding:14px 18px;font-weight:950;font-size:14px;cursor:pointer;}
+  .v33-start{background:#2563eb;color:white;box-shadow:0 12px 30px rgba(37,99,235,.28);flex:1;}
+  .v33-download{background:#e2e8f0;color:#0f172a;}
+  @media(max-width:860px){#iadcV33SharedRoot{padding:10px}.v33-grid{grid-template-columns:1fr}.v33-left{padding:26px}.v33-right{padding:24px}.v33-form{grid-template-columns:1fr}.v33-left h1{font-size:28px}}
 </style>
-<script id="iadc-v32-shared-route-fix">
+<script>
 (function(){
   'use strict';
-  const CFG = {
-    apiKey: 'AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8',
-    projectId: 'iadc-exam-record',
-    baseUrl: 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/'
-  };
-  const qs = new URLSearchParams(location.search);
-  const examId = qs.get('examId');
-  if(!examId) return;
-
-  let pendingPayload = null;
-  let pendingRows = [];
-  const log = (...args)=>console.log('[IADC v32 shared]', ...args);
-  const warn = (...args)=>console.warn('[IADC v32 shared]', ...args);
-  const esc = s => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const sleep = ms => new Promise(r=>setTimeout(r,ms));
-
-  function b64decode(str){
-    str = String(str||'').replace(/-/g,'+').replace(/_/g,'/');
-    while(str.length % 4) str += '=';
-    return JSON.parse(decodeURIComponent(escape(atob(str))));
+  const CFG={apiKey:'AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8',projectId:'iadc-exam-record',baseUrl:'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/'};
+  const log=(...a)=>console.log('[IADC v33]',...a);
+  const warn=(...a)=>console.warn('[IADC v33]',...a);
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function bank(){try{if(Array.isArray(window.BANK)&&window.BANK.length)return window.BANK;}catch(_){ }try{if(typeof BANK!=='undefined'&&Array.isArray(BANK)&&BANK.length)return BANK;}catch(_){ }return[];}
+  function getQSub(q){return q.subCategory||q.topic||'General';}
+  function getQMain(q){return q.mainCategory||'Question Bank';}
+  function selectedDashboardSubcats(){return new Set(Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(cb=>cb.value));}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+  async function waitForBank(timeout=10000){const t=Date.now();while(Date.now()-t<timeout){if(bank().length>=400)return bank();await sleep(100);}return bank();}
+  function allSubcatGroups(){const groups={};bank().forEach(q=>{const m=getQMain(q),s=getQSub(q);((groups[m]||={})[s]||=[]).push(q);});return groups;}
+  function selectedShareSubcats(){const checks=Array.from(document.querySelectorAll('.v33-share-cat-checkbox'));if(checks.length)return new Set(checks.filter(cb=>cb.checked).map(cb=>cb.value));return selectedDashboardSubcats();}
+  function getRowsFromSelectedShareCategories(){const selected=selectedShareSubcats();return bank().filter(q=>selected.has(getQSub(q)));}
+  function updateShareCategoryCount(){const selected=selectedShareSubcats();const rows=bank().filter(q=>selected.has(getQSub(q)));const el=$('v33ShareCategoryCount');if(el)el.textContent=`${selected.size} categories • ${rows.length} questions selected`;const stats=$('shareLinkStats');if(stats&&(!stats.textContent||stats.textContent==='No link generated.'))stats.textContent=`Ready • ${rows.length} selected questions`;return rows.length;}
+  function setShareCategorySelection(mode){const checks=Array.from(document.querySelectorAll('.v33-share-cat-checkbox'));if(!checks.length)return;if(mode==='all')checks.forEach(cb=>cb.checked=true);else if(mode==='none')checks.forEach(cb=>cb.checked=false);else if(mode==='dashboard'){const dash=selectedDashboardSubcats();checks.forEach(cb=>cb.checked=dash.has(cb.value));}updateShareCategoryCount();}
+  window.v33SetShareCategorySelection=setShareCategorySelection;
+  function installShareCategoryPanel(){
+    const sharePane=$('qmPaneShare');if(!sharePane||$('v33ShareCategoryPanel'))return;const firstCard=sharePane.querySelector('.qm-filter-card');if(!firstCard)return;const groups=allSubcatGroups();const dash=selectedDashboardSubcats();
+    let html=`<div id="v33ShareCategoryPanel" class="v33-share-cat-panel"><div class="v33-share-cat-head"><div><div class="v33-share-cat-title">Shared exam categories</div><div id="v33ShareCategoryCount" class="v33-share-count">Preparing selection...</div></div><div class="v33-share-cat-tools"><button type="button" class="v33-mini-btn" onclick="v33SetShareCategorySelection('dashboard')">Match Dashboard</button><button type="button" class="v33-mini-btn" onclick="v33SetShareCategorySelection('all')">All</button><button type="button" class="v33-mini-btn" onclick="v33SetShareCategorySelection('none')">Clear</button></div></div><div class="v33-share-cat-list">`;
+    Object.keys(groups).sort().forEach(main=>{html+=`<div class="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">${esc(main)}</div>`;Object.keys(groups[main]).sort((a,b)=>a.localeCompare(b)).forEach(sub=>{const count=groups[main][sub].length;const checked=dash.size?dash.has(sub):true;html+=`<label class="v33-share-cat-item"><span class="truncate">${esc(sub)}</span><span class="flex items-center gap-2"><span class="bg-slate-100 rounded-lg px-2 py-1 text-[10px]">${count}</span><input class="v33-share-cat-checkbox" type="checkbox" value="${esc(sub)}" ${checked?'checked':''}></span></label>`;});});
+    html+=`</div><div class="text-[11px] text-slate-500 font-bold mt-2 leading-relaxed">The trainee link will include only the checked categories in this panel. Use Match Dashboard after changing Dashboard selections.</div></div>`;
+    const buttonGrid=firstCard.querySelector('.grid.grid-cols-1.gap-2');if(buttonGrid)buttonGrid.insertAdjacentHTML('beforebegin',html);else firstCard.insertAdjacentHTML('beforeend',html);
+    document.querySelectorAll('.v33-share-cat-checkbox').forEach(cb=>cb.addEventListener('change',updateShareCategoryCount));const btn=[...firstCard.querySelectorAll('button')].find(b=>/Use Dashboard Selected Categories/i.test(b.textContent||''));if(btn)btn.innerHTML='<i class="ph-bold ph-check-square"></i> Generate From Checked Categories';updateShareCategoryCount();
   }
-  function getHashPayload(){
-    if(!location.hash || !location.hash.startsWith('#exam=')) return null;
-    try { return b64decode(location.hash.slice(6)); } catch(e){ warn('Backup payload decode failed', e); return null; }
-  }
-  function fromFirestoreValue(v){
-    if(v === null || v === undefined) return v;
-    if('stringValue' in v) return v.stringValue;
-    if('integerValue' in v) return Number(v.integerValue);
-    if('doubleValue' in v) return Number(v.doubleValue);
-    if('booleanValue' in v) return !!v.booleanValue;
-    if('timestampValue' in v) return v.timestampValue;
-    if('nullValue' in v) return null;
-    if('arrayValue' in v) return (v.arrayValue.values || []).map(fromFirestoreValue);
-    if('mapValue' in v) return fromFirestoreFields(v.mapValue.fields || {});
-    return undefined;
-  }
-  function fromFirestoreFields(fields){
-    const out = {};
-    Object.entries(fields || {}).forEach(([k,v]) => out[k] = fromFirestoreValue(v));
-    return out;
-  }
-  async function firestoreRestGet(collection, id){
-    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(CFG.projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?key=${encodeURIComponent(CFG.apiKey)}`;
-    const res = await fetch(url, { cache:'no-store' });
-    if(res.status === 404) return null;
-    if(!res.ok) throw new Error(`Firestore REST read failed (${res.status}). Check Firestore Rules and examPackages/${id}.`);
-    const json = await res.json();
-    return fromFirestoreFields(json.fields || {});
-  }
-  function getBank(){
-    try { if(Array.isArray(window.BANK) && window.BANK.length) return window.BANK; } catch(_){ }
-    try { if(typeof BANK !== 'undefined' && Array.isArray(BANK) && BANK.length) return BANK; } catch(_){ }
-    return [];
-  }
-  async function waitForBank(timeout=10000){
-    const start = Date.now();
-    while(Date.now() - start < timeout){
-      const b = getBank();
-      if(b.length >= 400) return b;
-      await sleep(100);
-    }
-    return getBank();
-  }
-  function resolveRows(payload){
-    const b = getBank();
-    const refs = Array.isArray(payload?.refs) ? payload.refs : [];
-    const rows = [];
-    refs.forEach(ref => {
-      const s = String(ref);
-      const found = b.find(q => String(q.orig) === s || String(q.ref) === s || String(q.sessionNum) === s);
-      if(found) rows.push({...found});
-    });
-    (Array.isArray(payload?.customQuestions) ? payload.customQuestions : []).forEach(q => rows.push({...q}));
-    return rows.map((q,i)=>({...q, sessionNum:i+1}));
-  }
-  function renderRoot(message, kind='loading'){
-    document.body.classList.add('iadc-v32-shared-active');
-    let root = document.getElementById('iadcV32SharedRoot');
-    if(!root){
-      root = document.createElement('div');
-      root.id = 'iadcV32SharedRoot';
-      document.body.appendChild(root);
-    }
-    const p = pendingPayload || {};
-    const group = p.groupName || p.group || 'Ungrouped';
-    root.innerHTML = `
-      <div class="v32-shell">
-        <div class="v32-card">
-          <div class="v32-grid">
-            <section class="v32-left">
-              <div>
-                <div class="v32-badge">Secure trainee access</div>
-                <h1>WellSharp Exam Cover Page</h1>
-                <p class="v32-muted">This is a trainee-only exam link. The instructor dashboard, question bank, records, and answer key are hidden.</p>
-              </div>
-              <div>
-                <div style="font-size:22px;font-weight:950;margin-bottom:14px;">${esc(p.title || 'Loading exam...')}</div>
-                <div class="v32-meta">
-                  <div class="v32-meta-box"><div class="v32-meta-label">Questions</div><div class="v32-meta-value">${pendingRows.length || '-'}</div></div>
-                  <div class="v32-meta-box"><div class="v32-meta-label">Time Limit</div><div class="v32-meta-value">${p.minutes || '-'} min</div></div>
-                  <div class="v32-meta-box"><div class="v32-meta-label">Group</div><div class="v32-meta-value" style="font-size:16px;">${esc(group)}</div></div>
-                  <div class="v32-meta-box"><div class="v32-meta-label">Session</div><div class="v32-meta-value" style="font-size:13px;">${esc(p.sessionId || examId)}</div></div>
-                </div>
-              </div>
-              <p class="v32-muted" style="font-size:12px;">If the page does not load, send the instructor this Exam ID: ${esc(examId)}</p>
-            </section>
-            <section class="v32-right">
-              <h2 class="v32-title">Trainee data entry</h2>
-              <p class="v32-sub">Complete the cover page and accept the exam rules before starting. Required fields are marked with *.</p>
-              <div class="v32-form">
-                <div><label>Full name *</label><input id="v32StuName" autocomplete="name" placeholder="e.g. Ahmed Hassan"></div>
-                <div><label>Email / employee ID *</label><input id="v32StuEmail" autocomplete="email" placeholder="e.g. ahmed@rig.com / ID"></div>
-                <div><label>Company</label><input id="v32StuCompany" placeholder="e.g. Khalda / Apache JV"></div>
-                <div><label>Rig / unit / location</label><input id="v32StuRig" placeholder="e.g. Rig 604"></div>
-                <div><label>Rig role / title</label><input id="v32StuTitle" placeholder="e.g. Driller, Toolpusher, Company Man"></div>
-                <div><label>Years experience</label><input id="v32StuExp" type="number" min="0" placeholder="e.g. 7"></div>
-                <div><label>Mobile / contact</label><input id="v32StuPhone" placeholder="optional"></div>
-                <div><label>Assigned group</label><input id="v32StuGroup" readonly value="${esc(group)}"></div>
-              </div>
-              <div class="v32-rules">
-                <h3>Exam rules and declaration</h3>
-                <ul>
-                  <li>The exam is timed; submit before the timer ends.</li>
-                  <li>Unanswered questions are recorded as open.</li>
-                  <li>No external assistance, screenshots, copying, or answer sharing unless allowed by the instructor.</li>
-                  <li>Your submitted record includes trainee data, answers, score, category gaps, time, group, and session ID.</li>
-                  <li>Keep this browser window open until the final submission confirmation appears.</li>
-                </ul>
-                <label class="v32-agree"><input id="v32Agree" type="checkbox"><span>I confirm the data is correct and I agree to follow the exam rules.</span></label>
-              </div>
-              <div id="v32Msg" class="v32-msg ${kind==='error'?'err':'loading'}">${esc(message || 'Loading exam package...')}</div>
-              <div class="v32-actions">
-                <button class="v32-start" id="v32StartBtn">Start Exam</button>
-                <button class="v32-download" id="v32DownloadBtn">Backup Package</button>
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>`;
-    document.getElementById('v32StartBtn')?.addEventListener('click', beginExam);
-    document.getElementById('v32DownloadBtn')?.addEventListener('click', downloadPackage);
-    if(kind !== 'error' && pendingPayload && pendingRows.length){
-      const msg = document.getElementById('v32Msg');
-      if(msg){ msg.className = 'v32-msg loading'; msg.textContent = 'Exam package loaded. Complete the trainee data and start.'; }
-    }
-  }
-  function showMsg(msg, kind='loading'){
-    const el = document.getElementById('v32Msg');
-    if(el){ el.textContent = msg; el.className = `v32-msg ${kind==='error'?'err':'loading'}`; }
-    else renderRoot(msg, kind);
-  }
-  function beginExam(){
-    if(!pendingPayload || !pendingRows.length) return showMsg('Exam is not ready. Ask the instructor to regenerate the link from the latest platform.', 'error');
-    const name = document.getElementById('v32StuName')?.value?.trim() || '';
-    const email = document.getElementById('v32StuEmail')?.value?.trim() || '';
-    if(!name || !email) return showMsg('Full name and email / employee ID are required.', 'error');
-    if(!document.getElementById('v32Agree')?.checked) return showMsg('Please confirm the exam declaration before starting.', 'error');
-    const group = document.getElementById('v32StuGroup')?.value?.trim() || pendingPayload.groupName || 'Ungrouped';
-    const studentInfo = {
-      name, email, employeeId: email, group,
-      company: document.getElementById('v32StuCompany')?.value?.trim() || '',
-      rig: document.getElementById('v32StuRig')?.value?.trim() || '',
-      title: document.getElementById('v32StuTitle')?.value?.trim() || '',
-      experience: document.getElementById('v32StuExp')?.value?.trim() || '',
-      mobile: document.getElementById('v32StuPhone')?.value?.trim() || ''
-    };
-    try {
-      const appState = (function(){ try { return APP_STATE; } catch(_) { return window.APP_STATE || {}; } })();
-      appState.studentInfo = studentInfo;
-      appState.sharedExam = { ...pendingPayload, groupName: group, startedAt: new Date().toISOString() };
-    } catch(e){ warn('APP_STATE not available', e); }
-    const root = document.getElementById('iadcV32SharedRoot');
-    if(root) root.remove();
-    document.body.classList.remove('iadc-v32-shared-active','shared-exam-landing');
-    document.getElementById('sharedExamLanding')?.classList.add('hidden');
-    document.getElementById('entranceGateway')?.classList.add('hidden');
-    const modeSel = document.getElementById('modeSel'); if(modeSel) modeSel.value = 'exam';
-    const min = Number(pendingPayload.minutes || 60);
-    const minutesInput = document.getElementById('minutesInput'); if(minutesInput) minutesInput.value = min;
-    if(typeof window.startSessionFromQuestionRows === 'function') return window.startSessionFromQuestionRows(pendingRows, { mode:'exam', minutes:min, shuffle: pendingPayload.shuffle !== false });
-    if(typeof startSessionFromQuestionRows === 'function') return startSessionFromQuestionRows(pendingRows, { mode:'exam', minutes:min, shuffle: pendingPayload.shuffle !== false });
-    showMsg('Internal exam start function is missing. Upload the latest index.html again.', 'error');
-  }
-  function downloadPackage(){
-    if(!pendingPayload) return showMsg('No exam package loaded yet.', 'error');
-    const blob = new Blob([JSON.stringify(pendingPayload,null,2)], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${pendingPayload.sessionId || examId}_package.json`; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  }
-  async function boot(){
-    log('route detected', examId);
-    renderRoot('Loading exam package from Firestore...', 'loading');
-    try {
-      await waitForBank();
-      let payload = getHashPayload();
-      if(!payload){
-        payload = await firestoreRestGet('examPackages', examId);
-      }
-      if(!payload) throw new Error(`Exam package not found: ${examId}. Confirm it exists in Firestore collection examPackages and generate a new link.`);
-      if(payload.fields) payload = fromFirestoreFields(payload.fields);
-      if(payload.type && payload.type !== 'iwcf-shared-exam') warn('Unexpected package type:', payload.type);
-      pendingPayload = payload;
-      pendingRows = resolveRows(payload);
-      log('package loaded', payload, 'rows', pendingRows.length);
-      if(!pendingRows.length) throw new Error('Exam loaded from Firestore, but selected question references did not match the local 402-question bank. Replace GitHub index.html with the latest file and regenerate the link.');
-      renderRoot('Exam package loaded. Complete trainee data and start.', 'loading');
-    } catch(e){
-      console.error('[IADC v32 shared] failed:', e);
-      renderRoot(e?.message || String(e), 'error');
-    }
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  function canonicalBaseUrl(){let u=($('shareHostedUrl')?.value||localStorage.getItem('iwcf_hosted_platform_url')||CFG.baseUrl||'').trim();u=u.replace(/#.*$/,'').replace(/\?.*$/,'');try{const url=new URL(u);if(/\.html?$/i.test(url.pathname))url.pathname=url.pathname.replace(/[^/]+$/,'');if(!url.pathname.endsWith('/'))url.pathname+='/';const out=url.toString();if($('shareHostedUrl'))$('shareHostedUrl').value=out;localStorage.setItem('iwcf_hosted_platform_url',out);return out;}catch(_){if(!u.endsWith('/'))u+='/';return u;}}
+  function b64UrlEncode(obj){try{if(typeof base64UrlEncode==='function')return base64UrlEncode(obj);}catch(_){ }return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+  function b64Decode(str){str=String(str||'').replace(/-/g,'+').replace(/_/g,'/');while(str.length%4)str+='=';return JSON.parse(decodeURIComponent(escape(atob(str))));}
+  async function savePackage(payload){if(typeof window.saveExamPackageToFirestore==='function')return await window.saveExamPackageToFirestore(payload);if(typeof saveExamPackageToFirestore==='function')return await saveExamPackageToFirestore(payload);throw new Error('Firestore save function is not ready. Login as instructor and try again.');}
+  window.packageQuestionsForLink=async function(rows,sourceLabel){rows=Array.isArray(rows)?rows.slice():[];const picked=getRowsFromSelectedShareCategories();if(picked.length&&(rows.length===0||rows.length===bank().length||/Dashboard|category picker/i.test(sourceLabel||'')))rows=picked;const unique=[],seen=new Set();rows.forEach(q=>{const key=String(q.orig??q.id??q.prompt);if(!seen.has(key)){seen.add(key);unique.push(q);}});rows=unique;if(!rows.length)return alert('Select at least one category/question before generating the trainee link.');const title=$('shareExamTitle')?.value?.trim()||'WellSharp Practice Exam';const groupName=($('shareGroupName')?.value||'Ungrouped').trim()||'Ungrouped';const minutes=Math.max(1,parseInt($('shareExamMinutes')?.value||$('minutesInput')?.value||'60',10));const base=canonicalBaseUrl();const refs=rows.map(q=>Number(q.orig||q.ref||q.sessionNum)).filter(Boolean);const selectedCategories=[...new Set(rows.map(getQSub))].sort();const customQuestions=rows.filter(q=>!(Number(q.orig)>=1&&Number(q.orig)<=402)).map(q=>({...q}));const sessionId=`EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;const payload={type:'iwcf-shared-exam',version:33,createdAt:new Date().toISOString(),sessionId,title,groupName,minutes,mode:'exam',shuffle:!!$('shareShuffle')?.checked,sourceLabel:sourceLabel||'Selected categories',refs,selectedCategories,customQuestions,firestoreProject:CFG.projectId};const out=$('shareLinkOutput'),stats=$('shareLinkStats');if(out)out.textContent='Saving selected exam package to Firestore...';try{await savePackage(payload);const encoded=b64UrlEncode(payload);let link=`${base}${base.includes('?')?'&':'?'}examId=${encodeURIComponent(sessionId)}`;if(encoded.length<8500)link+=`#exam=${encoded}`;window.GENERATED_EXAM_LINK=link;window.GENERATED_EXAM_PACKAGE=payload;try{GENERATED_EXAM_LINK=link;GENERATED_EXAM_PACKAGE=payload;}catch(_){ }if(out){out.textContent=link;out.style.whiteSpace='pre-wrap';out.style.wordBreak='break-all';}if(stats)stats.textContent=`${rows.length} questions • ${selectedCategories.length} categories • ${minutes} min • ${groupName} • Firestore saved`;try{renderShareQuestionPreview(rows);}catch(_){ }try{switchQuestionManagerTab('share');}catch(_){ }try{qmStatus(`Generated selected-category trainee link: ${rows.length} questions from ${selectedCategories.length} categories.`);}catch(_){ }return link;}catch(e){if(out)out.textContent='Link was not generated because Firestore save failed.\n\n'+(e.message||e);if(stats)stats.textContent='Save failed. Login as instructor and confirm admins/{UID} exists.';alert('Exam link was not generated: '+(e.message||e));return '';}};
+  window.getDashboardSelectedQuestions=function(){const selected=selectedDashboardSubcats();return bank().filter(q=>selected.has(getQSub(q)));};
+  window.generateExamLinkFromDashboardSelection=function(){const rows=getRowsFromSelectedShareCategories();if(!rows.length)return alert('Select one or more categories in the Shared Exam Categories panel.');return window.packageQuestionsForLink(rows,'Share category picker');};try{generateExamLinkFromDashboardSelection=window.generateExamLinkFromDashboardSelection;}catch(_){ }
+  const oldFilterGen=window.generateExamLinkFromManagerFilters;window.generateExamLinkFromManagerFilters=function(){let rows=[];try{if(typeof getFilteredQuestionManagerRows==='function')rows=getFilteredQuestionManagerRows(5000);else if(typeof getQuestionManagerRows==='function')rows=getQuestionManagerRows();}catch(e){warn(e);}if(!rows.length&&typeof oldFilterGen==='function')return oldFilterGen();return window.packageQuestionsForLink(rows,'Question Manager filters');};try{generateExamLinkFromManagerFilters=window.generateExamLinkFromManagerFilters;}catch(_){ }
+  function fsFromValue(v){if(v==null)return v;if('stringValue'in v)return v.stringValue;if('integerValue'in v)return Number(v.integerValue);if('doubleValue'in v)return Number(v.doubleValue);if('booleanValue'in v)return!!v.booleanValue;if('timestampValue'in v)return v.timestampValue;if('nullValue'in v)return null;if('arrayValue'in v)return(v.arrayValue.values||[]).map(fsFromValue);if('mapValue'in v)return fsFromFields(v.mapValue.fields||{});return undefined;}
+  function fsFromFields(fields){const out={};Object.entries(fields||{}).forEach(([k,v])=>out[k]=fsFromValue(v));return out;}
+  async function firestoreRestGet(collection,id){const url=`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(CFG.projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?key=${encodeURIComponent(CFG.apiKey)}`;const res=await fetch(url,{cache:'no-store'});if(res.status===404)return null;if(!res.ok)throw new Error(`Firestore read failed (${res.status}). Check examPackages/${id} and Firestore rules.`);const json=await res.json();return fsFromFields(json.fields||{});}
+  let pendingPayload=null,pendingRows=[];
+  function resolveRows(payload){const b=bank();const rows=[];(payload.refs||[]).forEach(ref=>{const s=String(ref);const found=b.find(q=>String(q.orig)===s||String(q.ref)===s);if(found)rows.push({...found});});(payload.customQuestions||[]).forEach(q=>rows.push({...q}));return rows.map((q,i)=>({...q,sessionNum:i+1}));}
+  function renderSharedRoot(msg,kind='loading'){document.body.classList.add('iadc-v33-shared-active');let root=$('iadcV33SharedRoot');if(!root){root=document.createElement('div');root.id='iadcV33SharedRoot';document.body.appendChild(root);}const p=pendingPayload||{};const group=p.groupName||p.group||'Ungrouped';root.innerHTML=`<div class="v33-shell"><div class="v33-card"><div class="v33-grid"><section class="v33-left"><div><div class="v33-badge">Secure trainee access</div><h1>WellSharp Exam Cover Page</h1><p class="v33-muted">This is a trainee-only exam link. The instructor dashboard, question bank, records, and answer key are hidden.</p></div><div><div style="font-size:22px;font-weight:950;margin-bottom:14px;">${esc(p.title||'Loading exam...')}</div><div class="v33-meta"><div class="v33-meta-box"><div class="v33-meta-label">Questions</div><div class="v33-meta-value">${pendingRows.length||'-'}</div></div><div class="v33-meta-box"><div class="v33-meta-label">Time Limit</div><div class="v33-meta-value">${p.minutes||'-'} min</div></div><div class="v33-meta-box"><div class="v33-meta-label">Group</div><div class="v33-meta-value" style="font-size:16px;">${esc(group)}</div></div><div class="v33-meta-box"><div class="v33-meta-label">Session</div><div class="v33-meta-value" style="font-size:13px;">${esc(p.sessionId||new URLSearchParams(location.search).get('examId')||'-')}</div></div></div></div></section><section class="v33-right"><h2 class="v33-title">Trainee data entry</h2><p class="v33-sub">Complete the cover page and accept the exam rules before starting. Required fields are marked with *.</p><div class="v33-form"><div><label>Full name *</label><input id="v33StuName" autocomplete="name" placeholder="e.g. Ahmed Hassan"></div><div><label>Email / employee ID *</label><input id="v33StuEmail" autocomplete="email" placeholder="e.g. ahmed@rig.com / ID"></div><div><label>Company</label><input id="v33StuCompany" placeholder="e.g. Khalda / Apache JV"></div><div><label>Rig / unit / location</label><input id="v33StuRig" placeholder="e.g. Rig 604"></div><div><label>Rig role / title</label><input id="v33StuTitle" placeholder="e.g. Driller, Toolpusher, Company Man"></div><div><label>Years experience</label><input id="v33StuExp" type="number" min="0" placeholder="e.g. 7"></div><div><label>Mobile / contact</label><input id="v33StuPhone" placeholder="optional"></div><div><label>Assigned group</label><input id="v33StuGroup" readonly value="${esc(group)}"></div></div><div class="v33-rules"><h3>Exam rules and declaration</h3><ul><li>The exam is timed; submit before the timer ends.</li><li>Unanswered questions are recorded as open.</li><li>No external assistance, screenshots, copying, or answer sharing unless allowed by the instructor.</li><li>Your submitted record includes trainee data, answers, score, category gaps, time, group, and session ID.</li><li>Keep this browser window open until the final submission confirmation appears.</li></ul><label class="v33-agree"><input id="v33Agree" type="checkbox"><span>I confirm the data is correct and I agree to follow the exam rules.</span></label></div><div id="v33Msg" class="v33-msg ${kind==='error'?'err':'loading'}">${esc(msg||'Loading exam package...')}</div><div class="v33-actions"><button class="v33-start" id="v33StartBtn">Start Exam</button><button class="v33-download" id="v33DownloadBtn">Backup Package</button></div></section></div></div></div>`;$('v33StartBtn')?.addEventListener('click',beginExam);$('v33DownloadBtn')?.addEventListener('click',downloadPackage);}
+  function showSharedMsg(msg,kind='loading'){const el=$('v33Msg');if(el){el.textContent=msg;el.className=`v33-msg ${kind==='error'?'err':'loading'}`;}else renderSharedRoot(msg,kind);}
+  function beginExam(){if(!pendingPayload||!pendingRows.length)return showSharedMsg('Exam is not ready. Ask the instructor to regenerate the link.','error');const name=$('v33StuName')?.value.trim()||'',email=$('v33StuEmail')?.value.trim()||'';if(!name||!email)return showSharedMsg('Full name and email / employee ID are required.','error');if(!$('v33Agree')?.checked)return showSharedMsg('Please confirm the exam declaration before starting.','error');const group=$('v33StuGroup')?.value.trim()||pendingPayload.groupName||'Ungrouped';const st=(()=>{try{return APP_STATE;}catch(_){return window.APP_STATE||{};}})();st.studentInfo={name,email,employeeId:email,group,company:$('v33StuCompany')?.value.trim()||'',rig:$('v33StuRig')?.value.trim()||'',title:$('v33StuTitle')?.value.trim()||'',experience:$('v33StuExp')?.value.trim()||'',mobile:$('v33StuPhone')?.value.trim()||''};st.sharedExam={...pendingPayload,groupName:group,startedAt:new Date().toISOString()};$('iadcV33SharedRoot')?.remove();document.body.classList.remove('iadc-v33-shared-active','shared-exam-landing');$('sharedExamLanding')?.classList.add('hidden');$('entranceGateway')?.classList.add('hidden');if($('modeSel'))$('modeSel').value='exam';if($('minutesInput'))$('minutesInput').value=Number(pendingPayload.minutes||60);if(typeof window.startSessionFromQuestionRows==='function')return window.startSessionFromQuestionRows(pendingRows,{mode:'exam',minutes:Number(pendingPayload.minutes||60),shuffle:pendingPayload.shuffle!==false});if(typeof startSessionFromQuestionRows==='function')return startSessionFromQuestionRows(pendingRows,{mode:'exam',minutes:Number(pendingPayload.minutes||60),shuffle:pendingPayload.shuffle!==false});showSharedMsg('Internal exam start function is missing. Upload the latest index.html again.','error');}
+  function downloadPackage(){if(!pendingPayload)return showSharedMsg('No exam package loaded yet.','error');const blob=new Blob([JSON.stringify(pendingPayload,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${pendingPayload.sessionId||'exam'}_package.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+  async function bootShared(){const params=new URLSearchParams(location.search);const examId=params.get('examId');if(!examId&&!location.hash.startsWith('#exam='))return;if($('entranceGateway'))$('entranceGateway').classList.add('hidden');renderSharedRoot('Loading exam package...','loading');try{await waitForBank();let payload=null;if(location.hash.startsWith('#exam=')){try{payload=b64Decode(location.hash.slice(6));}catch(e){warn('hash decode failed',e);}}if(!payload&&examId)payload=await firestoreRestGet('examPackages',examId);if(!payload)throw new Error(`Exam package not found. Ask the instructor to regenerate the link.`);pendingPayload=payload;pendingRows=resolveRows(payload);if(!pendingRows.length)throw new Error('Exam loaded, but selected question references did not match this platform file. Upload the latest index.html and regenerate the link.');renderSharedRoot('Exam package loaded. Complete trainee data and start.','loading');log('shared package loaded',pendingPayload.sessionId,pendingRows.length);}catch(e){console.error('[IADC v33] shared route failed',e);renderSharedRoot(e.message||String(e),'error');}}
+  function removeActiveLocalRecord(){try{const st=APP_STATE;const records=JSON.parse(localStorage.getItem('iwcf_exam_records')||'[]');const sid=st.sharedExam?.sessionId||`LOCAL-${new Date().toISOString().slice(0,10)}`;const email=st.studentInfo?.email||'',name=st.studentInfo?.name||'';const filtered=records.filter(r=>!(r.status==='active'&&String(r.sessionId||'')===String(sid)&&String(r.trainee?.email||'')===String(email)&&String(r.trainee?.name||'')===String(name)));localStorage.setItem('iwcf_exam_records',JSON.stringify(filtered.slice(-1000)));}catch(e){warn(e);}}
+  window.exitSessionWithoutRecord=function(){let st;try{st=APP_STATE;}catch(_){st=window.APP_STATE;}if(st?.status==='active'&&!confirm('Exit this session without submitting or saving a record? Current answers will be discarded.'))return;try{clearInterval(st.timerId);st.timerId=null;st.status='setup';st.session=[];st.currentIdx=0;st.userAnswers={};st.flagged={};st.categories={};st.sharedExam=null;}catch(_){ }removeActiveLocalRecord();try{if(typeof exitExamFocusMode==='function')exitExamFocusMode(true);}catch(_){ }document.body.classList.remove('exam-focus','show-question-nav','exam-nav-collapsed','shared-exam-landing');if(document.fullscreenElement)document.exitFullscreen?.().catch?.(()=>{});$('notStartedOverlay')?.classList.remove('hidden');const q=$('questionText');if(q)q.textContent='';const ch=$('choicesContainer');if(ch)ch.innerHTML='';const list=$('qListContainer');if(list)list.innerHTML='';try{updateSessionProgress();}catch(_){ }try{updateDashboardProgress();}catch(_){ }try{switchTab('dashboard');}catch(_){ }};
+  function installExitButtons(){const submitBox=$('submitBtnContainer');if(submitBox&&!$('v33ExitSidebarBtn'))submitBox.insertAdjacentHTML('beforeend','<button id="v33ExitSidebarBtn" onclick="exitSessionWithoutRecord()" class="v33-exit-btn w-full mt-2 font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2"><i class="ph-bold ph-sign-out"></i> Exit Without Record</button>');const footer=document.querySelector('#questionScreen .sticky.bottom-0')||document.querySelector('#questionScreen .mt-auto');if(footer&&!$('v33ExitFooterBtn'))footer.insertAdjacentHTML('beforeend','<button id="v33ExitFooterBtn" onclick="exitSessionWithoutRecord()" class="v33-exit-btn w-full sm:w-auto py-3.5 px-6 rounded-xl text-sm sm:text-base flex items-center justify-center gap-2"><i class="ph-bold ph-sign-out"></i> Exit</button>');const metaBar=document.querySelector('#questionScreen .flex.flex-wrap.items-center.justify-between');if(metaBar&&!$('v33ExitTopBtn')){const b=document.createElement('button');b.id='v33ExitTopBtn';b.type='button';b.onclick=window.exitSessionWithoutRecord;b.className='v33-exit-btn hidden items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm shadow-sm';b.innerHTML='<i class="ph-bold ph-sign-out"></i> Exit';metaBar.appendChild(b);}}
+  function suppressActiveRecordWrites(){try{if(typeof saveOrUpdateExamRecord==='function'&&!window.__v33SaveWrapped){const old=saveOrUpdateExamRecord;window.saveOrUpdateExamRecord=saveOrUpdateExamRecord=function(record){if(record?.status==='active')return;return old(record);};window.__v33SaveWrapped=true;}}catch(e){warn(e);}try{if(typeof pushRecordToEndpoint==='function'&&!window.__v33PushWrapped){const old=pushRecordToEndpoint;window.pushRecordToEndpoint=pushRecordToEndpoint=async function(record){if(record?.status==='active')return;return old(record);};window.__v33PushWrapped=true;}}catch(e){warn(e);}}
+  const oldSwitch=window.switchQuestionManagerTab;window.switchQuestionManagerTab=function(tab){const r=oldSwitch?.apply(this,arguments);if(tab==='share')setTimeout(installShareCategoryPanel,50);return r;};try{switchQuestionManagerTab=window.switchQuestionManagerTab;}catch(_){ }
+  document.addEventListener('DOMContentLoaded',()=>{installShareCategoryPanel();installExitButtons();suppressActiveRecordWrites();bootShared();});
+  setTimeout(()=>{installShareCategoryPanel();installExitButtons();suppressActiveRecordWrites();bootShared();},800);
+  setTimeout(()=>{installShareCategoryPanel();installExitButtons();suppressActiveRecordWrites();},2000);
+  log('patch loaded');
 })();
 </script>
 </body>
