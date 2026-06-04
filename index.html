@@ -8149,5 +8149,267 @@ import { getFirestore, doc, setDoc, getDoc, collection, getDocs, serverTimestamp
 })();
 </script>
 
+<!-- ================================================================
+     v32 FINAL SHARED EXAM ROUTER
+     Purpose: Fix blank trainee exam links on GitHub Pages by using an
+     independent Firestore REST loader and a standalone cover-page UI.
+     This does not depend on the older duplicated shared-link handlers.
+================================================================ -->
+<style id="iadc-v32-shared-route-style">
+  body.iadc-v32-shared-active { background:#020617 !important; overflow:auto !important; }
+  body.iadc-v32-shared-active > *:not(#iadcV32SharedRoot):not(script):not(style) { display:none !important; }
+  #iadcV32SharedRoot { position:fixed; inset:0; z-index:999999; overflow:auto; background:radial-gradient(circle at 10% 10%,rgba(37,99,235,.30),transparent 33%),radial-gradient(circle at 90% 15%,rgba(16,185,129,.20),transparent 35%),#020617; color:#0f172a; font-family:Inter,Arial,sans-serif; }
+  #iadcV32SharedRoot .v32-shell { min-height:100%; display:flex; align-items:center; justify-content:center; padding:20px; }
+  #iadcV32SharedRoot .v32-card { width:min(1120px,100%); background:rgba(255,255,255,.98); border:1px solid rgba(226,232,240,.9); border-radius:32px; overflow:hidden; box-shadow:0 35px 100px rgba(2,6,23,.45); }
+  #iadcV32SharedRoot .v32-grid { display:grid; grid-template-columns: 0.86fr 1.14fr; min-height:620px; }
+  #iadcV32SharedRoot .v32-left { background:#020617; color:white; padding:34px; display:flex; flex-direction:column; justify-content:space-between; gap:26px; }
+  #iadcV32SharedRoot .v32-badge { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:8px 12px; background:rgba(16,185,129,.14); color:#86efac; border:1px solid rgba(74,222,128,.25); font-weight:900; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+  #iadcV32SharedRoot h1 { margin:16px 0 10px; font-size:38px; line-height:1.02; font-weight:950; letter-spacing:-.04em; }
+  #iadcV32SharedRoot .v32-muted { color:#cbd5e1; font-size:15px; line-height:1.65; font-weight:650; }
+  #iadcV32SharedRoot .v32-meta { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  #iadcV32SharedRoot .v32-meta-box { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.10); border-radius:18px; padding:16px; }
+  #iadcV32SharedRoot .v32-meta-label { color:#94a3b8; font-size:11px; font-weight:950; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; }
+  #iadcV32SharedRoot .v32-meta-value { color:white; font-size:22px; font-weight:950; word-break:break-word; }
+  #iadcV32SharedRoot .v32-right { padding:32px; }
+  #iadcV32SharedRoot .v32-title { font-size:28px; font-weight:950; color:#0f172a; margin:0 0 6px; }
+  #iadcV32SharedRoot .v32-sub { color:#64748b; font-size:14px; font-weight:750; margin-bottom:22px; line-height:1.6; }
+  #iadcV32SharedRoot .v32-form { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  #iadcV32SharedRoot .v32-full { grid-column:1 / -1; }
+  #iadcV32SharedRoot label { display:block; font-size:11px; color:#64748b; font-weight:950; text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
+  #iadcV32SharedRoot input { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; background:#f8fafc; border-radius:15px; padding:13px 14px; font-size:15px; font-weight:800; color:#0f172a; outline:none; }
+  #iadcV32SharedRoot input:focus { background:white; border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.12); }
+  #iadcV32SharedRoot input[readonly] { background:#f1f5f9; color:#475569; }
+  #iadcV32SharedRoot .v32-rules { margin-top:18px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:20px; padding:16px; }
+  #iadcV32SharedRoot .v32-rules h3 { margin:0 0 9px; font-size:16px; color:#0f172a; font-weight:950; }
+  #iadcV32SharedRoot .v32-rules ul { margin:0; padding-left:20px; color:#475569; font-size:13px; line-height:1.6; font-weight:750; }
+  #iadcV32SharedRoot .v32-agree { display:flex; align-items:flex-start; gap:10px; color:#334155; font-size:14px; font-weight:900; margin-top:12px; }
+  #iadcV32SharedRoot .v32-agree input { width:18px; height:18px; flex:0 0 auto; margin-top:2px; accent-color:#2563eb; }
+  #iadcV32SharedRoot .v32-msg { margin-top:16px; border-radius:16px; padding:13px 14px; font-size:13px; font-weight:900; line-height:1.5; }
+  #iadcV32SharedRoot .v32-msg.loading { background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
+  #iadcV32SharedRoot .v32-msg.err { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
+  #iadcV32SharedRoot .v32-actions { display:flex; gap:12px; margin-top:20px; }
+  #iadcV32SharedRoot button { cursor:pointer; border:0; border-radius:18px; padding:14px 20px; font-size:15px; font-weight:950; }
+  #iadcV32SharedRoot .v32-start { flex:1; background:#2563eb; color:white; box-shadow:0 16px 30px rgba(37,99,235,.22); }
+  #iadcV32SharedRoot .v32-download { background:#e2e8f0; color:#0f172a; }
+  @media(max-width:900px){ #iadcV32SharedRoot .v32-grid{grid-template-columns:1fr;} #iadcV32SharedRoot h1{font-size:30px;} #iadcV32SharedRoot .v32-form{grid-template-columns:1fr;} }
+</style>
+<script id="iadc-v32-shared-route-fix">
+(function(){
+  'use strict';
+  const CFG = {
+    apiKey: 'AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8',
+    projectId: 'iadc-exam-record',
+    baseUrl: 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/'
+  };
+  const qs = new URLSearchParams(location.search);
+  const examId = qs.get('examId');
+  if(!examId) return;
+
+  let pendingPayload = null;
+  let pendingRows = [];
+  const log = (...args)=>console.log('[IADC v32 shared]', ...args);
+  const warn = (...args)=>console.warn('[IADC v32 shared]', ...args);
+  const esc = s => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  function b64decode(str){
+    str = String(str||'').replace(/-/g,'+').replace(/_/g,'/');
+    while(str.length % 4) str += '=';
+    return JSON.parse(decodeURIComponent(escape(atob(str))));
+  }
+  function getHashPayload(){
+    if(!location.hash || !location.hash.startsWith('#exam=')) return null;
+    try { return b64decode(location.hash.slice(6)); } catch(e){ warn('Backup payload decode failed', e); return null; }
+  }
+  function fromFirestoreValue(v){
+    if(v === null || v === undefined) return v;
+    if('stringValue' in v) return v.stringValue;
+    if('integerValue' in v) return Number(v.integerValue);
+    if('doubleValue' in v) return Number(v.doubleValue);
+    if('booleanValue' in v) return !!v.booleanValue;
+    if('timestampValue' in v) return v.timestampValue;
+    if('nullValue' in v) return null;
+    if('arrayValue' in v) return (v.arrayValue.values || []).map(fromFirestoreValue);
+    if('mapValue' in v) return fromFirestoreFields(v.mapValue.fields || {});
+    return undefined;
+  }
+  function fromFirestoreFields(fields){
+    const out = {};
+    Object.entries(fields || {}).forEach(([k,v]) => out[k] = fromFirestoreValue(v));
+    return out;
+  }
+  async function firestoreRestGet(collection, id){
+    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(CFG.projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?key=${encodeURIComponent(CFG.apiKey)}`;
+    const res = await fetch(url, { cache:'no-store' });
+    if(res.status === 404) return null;
+    if(!res.ok) throw new Error(`Firestore REST read failed (${res.status}). Check Firestore Rules and examPackages/${id}.`);
+    const json = await res.json();
+    return fromFirestoreFields(json.fields || {});
+  }
+  function getBank(){
+    try { if(Array.isArray(window.BANK) && window.BANK.length) return window.BANK; } catch(_){ }
+    try { if(typeof BANK !== 'undefined' && Array.isArray(BANK) && BANK.length) return BANK; } catch(_){ }
+    return [];
+  }
+  async function waitForBank(timeout=10000){
+    const start = Date.now();
+    while(Date.now() - start < timeout){
+      const b = getBank();
+      if(b.length >= 400) return b;
+      await sleep(100);
+    }
+    return getBank();
+  }
+  function resolveRows(payload){
+    const b = getBank();
+    const refs = Array.isArray(payload?.refs) ? payload.refs : [];
+    const rows = [];
+    refs.forEach(ref => {
+      const s = String(ref);
+      const found = b.find(q => String(q.orig) === s || String(q.ref) === s || String(q.sessionNum) === s);
+      if(found) rows.push({...found});
+    });
+    (Array.isArray(payload?.customQuestions) ? payload.customQuestions : []).forEach(q => rows.push({...q}));
+    return rows.map((q,i)=>({...q, sessionNum:i+1}));
+  }
+  function renderRoot(message, kind='loading'){
+    document.body.classList.add('iadc-v32-shared-active');
+    let root = document.getElementById('iadcV32SharedRoot');
+    if(!root){
+      root = document.createElement('div');
+      root.id = 'iadcV32SharedRoot';
+      document.body.appendChild(root);
+    }
+    const p = pendingPayload || {};
+    const group = p.groupName || p.group || 'Ungrouped';
+    root.innerHTML = `
+      <div class="v32-shell">
+        <div class="v32-card">
+          <div class="v32-grid">
+            <section class="v32-left">
+              <div>
+                <div class="v32-badge">Secure trainee access</div>
+                <h1>WellSharp Exam Cover Page</h1>
+                <p class="v32-muted">This is a trainee-only exam link. The instructor dashboard, question bank, records, and answer key are hidden.</p>
+              </div>
+              <div>
+                <div style="font-size:22px;font-weight:950;margin-bottom:14px;">${esc(p.title || 'Loading exam...')}</div>
+                <div class="v32-meta">
+                  <div class="v32-meta-box"><div class="v32-meta-label">Questions</div><div class="v32-meta-value">${pendingRows.length || '-'}</div></div>
+                  <div class="v32-meta-box"><div class="v32-meta-label">Time Limit</div><div class="v32-meta-value">${p.minutes || '-'} min</div></div>
+                  <div class="v32-meta-box"><div class="v32-meta-label">Group</div><div class="v32-meta-value" style="font-size:16px;">${esc(group)}</div></div>
+                  <div class="v32-meta-box"><div class="v32-meta-label">Session</div><div class="v32-meta-value" style="font-size:13px;">${esc(p.sessionId || examId)}</div></div>
+                </div>
+              </div>
+              <p class="v32-muted" style="font-size:12px;">If the page does not load, send the instructor this Exam ID: ${esc(examId)}</p>
+            </section>
+            <section class="v32-right">
+              <h2 class="v32-title">Trainee data entry</h2>
+              <p class="v32-sub">Complete the cover page and accept the exam rules before starting. Required fields are marked with *.</p>
+              <div class="v32-form">
+                <div><label>Full name *</label><input id="v32StuName" autocomplete="name" placeholder="e.g. Ahmed Hassan"></div>
+                <div><label>Email / employee ID *</label><input id="v32StuEmail" autocomplete="email" placeholder="e.g. ahmed@rig.com / ID"></div>
+                <div><label>Company</label><input id="v32StuCompany" placeholder="e.g. Khalda / Apache JV"></div>
+                <div><label>Rig / unit / location</label><input id="v32StuRig" placeholder="e.g. Rig 604"></div>
+                <div><label>Rig role / title</label><input id="v32StuTitle" placeholder="e.g. Driller, Toolpusher, Company Man"></div>
+                <div><label>Years experience</label><input id="v32StuExp" type="number" min="0" placeholder="e.g. 7"></div>
+                <div><label>Mobile / contact</label><input id="v32StuPhone" placeholder="optional"></div>
+                <div><label>Assigned group</label><input id="v32StuGroup" readonly value="${esc(group)}"></div>
+              </div>
+              <div class="v32-rules">
+                <h3>Exam rules and declaration</h3>
+                <ul>
+                  <li>The exam is timed; submit before the timer ends.</li>
+                  <li>Unanswered questions are recorded as open.</li>
+                  <li>No external assistance, screenshots, copying, or answer sharing unless allowed by the instructor.</li>
+                  <li>Your submitted record includes trainee data, answers, score, category gaps, time, group, and session ID.</li>
+                  <li>Keep this browser window open until the final submission confirmation appears.</li>
+                </ul>
+                <label class="v32-agree"><input id="v32Agree" type="checkbox"><span>I confirm the data is correct and I agree to follow the exam rules.</span></label>
+              </div>
+              <div id="v32Msg" class="v32-msg ${kind==='error'?'err':'loading'}">${esc(message || 'Loading exam package...')}</div>
+              <div class="v32-actions">
+                <button class="v32-start" id="v32StartBtn">Start Exam</button>
+                <button class="v32-download" id="v32DownloadBtn">Backup Package</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('v32StartBtn')?.addEventListener('click', beginExam);
+    document.getElementById('v32DownloadBtn')?.addEventListener('click', downloadPackage);
+    if(kind !== 'error' && pendingPayload && pendingRows.length){
+      const msg = document.getElementById('v32Msg');
+      if(msg){ msg.className = 'v32-msg loading'; msg.textContent = 'Exam package loaded. Complete the trainee data and start.'; }
+    }
+  }
+  function showMsg(msg, kind='loading'){
+    const el = document.getElementById('v32Msg');
+    if(el){ el.textContent = msg; el.className = `v32-msg ${kind==='error'?'err':'loading'}`; }
+    else renderRoot(msg, kind);
+  }
+  function beginExam(){
+    if(!pendingPayload || !pendingRows.length) return showMsg('Exam is not ready. Ask the instructor to regenerate the link from the latest platform.', 'error');
+    const name = document.getElementById('v32StuName')?.value?.trim() || '';
+    const email = document.getElementById('v32StuEmail')?.value?.trim() || '';
+    if(!name || !email) return showMsg('Full name and email / employee ID are required.', 'error');
+    if(!document.getElementById('v32Agree')?.checked) return showMsg('Please confirm the exam declaration before starting.', 'error');
+    const group = document.getElementById('v32StuGroup')?.value?.trim() || pendingPayload.groupName || 'Ungrouped';
+    const studentInfo = {
+      name, email, employeeId: email, group,
+      company: document.getElementById('v32StuCompany')?.value?.trim() || '',
+      rig: document.getElementById('v32StuRig')?.value?.trim() || '',
+      title: document.getElementById('v32StuTitle')?.value?.trim() || '',
+      experience: document.getElementById('v32StuExp')?.value?.trim() || '',
+      mobile: document.getElementById('v32StuPhone')?.value?.trim() || ''
+    };
+    try {
+      const appState = (function(){ try { return APP_STATE; } catch(_) { return window.APP_STATE || {}; } })();
+      appState.studentInfo = studentInfo;
+      appState.sharedExam = { ...pendingPayload, groupName: group, startedAt: new Date().toISOString() };
+    } catch(e){ warn('APP_STATE not available', e); }
+    const root = document.getElementById('iadcV32SharedRoot');
+    if(root) root.remove();
+    document.body.classList.remove('iadc-v32-shared-active','shared-exam-landing');
+    document.getElementById('sharedExamLanding')?.classList.add('hidden');
+    document.getElementById('entranceGateway')?.classList.add('hidden');
+    const modeSel = document.getElementById('modeSel'); if(modeSel) modeSel.value = 'exam';
+    const min = Number(pendingPayload.minutes || 60);
+    const minutesInput = document.getElementById('minutesInput'); if(minutesInput) minutesInput.value = min;
+    if(typeof window.startSessionFromQuestionRows === 'function') return window.startSessionFromQuestionRows(pendingRows, { mode:'exam', minutes:min, shuffle: pendingPayload.shuffle !== false });
+    if(typeof startSessionFromQuestionRows === 'function') return startSessionFromQuestionRows(pendingRows, { mode:'exam', minutes:min, shuffle: pendingPayload.shuffle !== false });
+    showMsg('Internal exam start function is missing. Upload the latest index.html again.', 'error');
+  }
+  function downloadPackage(){
+    if(!pendingPayload) return showMsg('No exam package loaded yet.', 'error');
+    const blob = new Blob([JSON.stringify(pendingPayload,null,2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${pendingPayload.sessionId || examId}_package.json`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+  async function boot(){
+    log('route detected', examId);
+    renderRoot('Loading exam package from Firestore...', 'loading');
+    try {
+      await waitForBank();
+      let payload = getHashPayload();
+      if(!payload){
+        payload = await firestoreRestGet('examPackages', examId);
+      }
+      if(!payload) throw new Error(`Exam package not found: ${examId}. Confirm it exists in Firestore collection examPackages and generate a new link.`);
+      if(payload.fields) payload = fromFirestoreFields(payload.fields);
+      if(payload.type && payload.type !== 'iwcf-shared-exam') warn('Unexpected package type:', payload.type);
+      pendingPayload = payload;
+      pendingRows = resolveRows(payload);
+      log('package loaded', payload, 'rows', pendingRows.length);
+      if(!pendingRows.length) throw new Error('Exam loaded from Firestore, but selected question references did not match the local 402-question bank. Replace GitHub index.html with the latest file and regenerate the link.');
+      renderRoot('Exam package loaded. Complete trainee data and start.', 'loading');
+    } catch(e){
+      console.error('[IADC v32 shared] failed:', e);
+      renderRoot(e?.message || String(e), 'error');
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
 </body>
 </html>
