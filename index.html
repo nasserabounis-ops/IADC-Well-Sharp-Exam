@@ -279,13 +279,13 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
     import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
     const firebaseConfig = {
-      apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
-      authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
-      databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
-      projectId: "iadc-well-sharp-prep-record",
-      storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
-      messagingSenderId: "697272682326",
-      appId: "1:697272682326:web:d95a0b7a0aa0d66ab978f7"
+      apiKey: "AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8",
+      authDomain: "iadc-exam-record.firebaseapp.com",
+      databaseURL: "https://iadc-exam-record-default-rtdb.firebaseio.com",
+      projectId: "iadc-exam-record",
+      storageBucket: "iadc-exam-record.firebasestorage.app",
+      messagingSenderId: "84498092944",
+      appId: "1:84498092944:web:d95a0b7a0aa0d66ab978f7"
     };
     try {
         const app = initializeApp(firebaseConfig);
@@ -626,7 +626,7 @@
                             <div><label class="qm-label">Exam title</label><input id="shareExamTitle" class="qm-field" value="WellSharp Practice Exam"></div>
                             <div><label class="qm-label">Training group / crew</label><input id="shareGroupName" class="qm-field" placeholder="e.g. Rig 604 Night Crew / Batch May 2026"></div>
                             <div><label class="qm-label">Exam time limit / minutes</label><input id="shareExamMinutes" type="number" min="1" value="60" class="qm-field"></div>
-                            <div><label class="qm-label">Public hosted platform URL</label><input id="shareHostedUrl" class="qm-field" placeholder="https://iadc-well-sharp-prep-record.web.app/"></div>
+                            <div><label class="qm-label">Public hosted platform URL</label><input id="shareHostedUrl" class="qm-field" placeholder="https://iadc-exam-record.web.app/"></div>
                             <div><label class="qm-label">Legacy result collector endpoint (optional)</label><input id="shareResultEndpoint" class="qm-field" placeholder="Optional Apps Script / secure backend URL"></div>
                             <div class="text-[11px] leading-relaxed font-bold text-slate-600 bg-emerald-50 border border-emerald-200 rounded-xl p-3"><span id="firebaseShareStatus" class="qm-firebase-badge qm-firebase-warn"><i class="ph-bold ph-cloud-warning"></i> Checking Firestore</span><br class="mt-1">Firestore is now the live backend. The generated trainee link uses <strong>?examId=SESSION</strong> and reads the exam package from Firestore, so it can be opened from mobile/computer after the platform is hosted online.</div>
                             <label class="flex items-start gap-2 text-xs font-bold text-slate-600"><input id="shareIncludeEndpoint" type="checkbox" class="mt-1"> Also post to legacy endpoint in addition to Firestore.</label>
@@ -6363,7 +6363,7 @@ d) Discuss the well control plan and reinforce individual crew duties
         const refs = rows.map(q=>q.orig);
         const customQuestions = rows.filter(q => !(Number(q.orig)>=1 && Number(q.orig)<=402)).map(q => ({ ...q }));
         const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
-        const payload = { type:'iwcf-shared-exam', version:8, createdAt:new Date().toISOString(), sessionId, title, groupName, minutes, mode:'exam', shuffle: !!document.getElementById('shareShuffle')?.checked, sourceLabel, refs, customQuestions, resultEndpoint:legacyEndpoint, firestoreProject:'iadc-well-sharp-prep-record' };
+        const payload = { type:'iwcf-shared-exam', version:8, createdAt:new Date().toISOString(), sessionId, title, groupName, minutes, mode:'exam', shuffle: !!document.getElementById('shareShuffle')?.checked, sourceLabel, refs, customQuestions, resultEndpoint:legacyEndpoint, firestoreProject:'iadc-exam-record' };
         const out=document.getElementById('shareLinkOutput'), stats=document.getElementById('shareLinkStats');
         if(out) out.textContent='Saving exam package to Firestore and generating public trainee link...';
         try {
@@ -6554,13 +6554,13 @@ d) Discuss the well control plan and reinforce individual crew duties
 
     // ===== v9 stability patch: Firestore REST fallback, public exam links, manager usability =====
     const IADC_FIREBASE_CONFIG_V9 = {
-      apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
-      authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
-      databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
-      projectId: "iadc-well-sharp-prep-record",
-      storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
-      messagingSenderId: "697272682326",
-      appId: "1:697272682326:web:d95a0b7a0aa0d66ab978f7"
+      apiKey: "AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8",
+      authDomain: "iadc-exam-record.firebaseapp.com",
+      databaseURL: "https://iadc-exam-record-default-rtdb.firebaseio.com",
+      projectId: "iadc-exam-record",
+      storageBucket: "iadc-exam-record.firebasestorage.app",
+      messagingSenderId: "84498092944",
+      appId: "1:84498092944:web:d95a0b7a0aa0d66ab978f7"
     };
 
     function v9FirestoreBaseUrl() {
@@ -6851,13 +6851,13 @@ d) Discuss the well control plan and reinforce individual crew duties
   'use strict';
   const VERSION = 'v28-github-firestore-shared-exam-routing-final';
   const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
-    authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
-    databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
-    projectId: "iadc-well-sharp-prep-record",
-    storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
-    messagingSenderId: "697272682326",
-    appId: "1:697272682326:web:d95a0b7a0aa0d66ab978f7"
+    apiKey: "AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8",
+    authDomain: "iadc-exam-record.firebaseapp.com",
+    databaseURL: "https://iadc-exam-record-default-rtdb.firebaseio.com",
+    projectId: "iadc-exam-record",
+    storageBucket: "iadc-exam-record.firebasestorage.app",
+    messagingSenderId: "84498092944",
+    appId: "1:84498092944:web:d95a0b7a0aa0d66ab978f7"
   };
   window.IADC_FIREBASE_CONFIG = FIREBASE_CONFIG;
   const $ = (id) => document.getElementById(id);
@@ -7389,13 +7389,13 @@ d) Discuss the well control plan and reinforce individual crew duties
   'use strict';
   const VERSION = 'v30-final-shared-link-tested';
   const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyB18uWwkKx029uOjB_UXHzSy1UJ0hmWbN0",
-    authDomain: "iadc-well-sharp-prep-record.firebaseapp.com",
-    databaseURL: "https://iadc-well-sharp-prep-record-default-rtdb.firebaseio.com",
-    projectId: "iadc-well-sharp-prep-record",
-    storageBucket: "iadc-well-sharp-prep-record.firebasestorage.app",
-    messagingSenderId: "697272682326",
-    appId: "1:697272682326:web:d95a0b7a0aa0d66ab978f7"
+    apiKey: "AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8",
+    authDomain: "iadc-exam-record.firebaseapp.com",
+    databaseURL: "https://iadc-exam-record-default-rtdb.firebaseio.com",
+    projectId: "iadc-exam-record",
+    storageBucket: "iadc-exam-record.firebasestorage.app",
+    messagingSenderId: "84498092944",
+    appId: "1:84498092944:web:d95a0b7a0aa0d66ab978f7"
   };
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -7723,6 +7723,429 @@ d) Discuss the well control plan and reinforce individual crew duties
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootV30); else bootV30();
   window.addEventListener('load', bootV30);
+})();
+</script>
+
+
+<script type="module" id="v31-final-auth-firestore-github">
+/* =========================================================
+   V31 FINAL - GitHub Pages + Firebase Auth + Cloud Firestore
+   Purpose:
+   - Uses the new Firebase project: iadc-exam-record
+   - Instructor creates exam packages only after Firebase email/password login
+   - Trainee shared links load from examPackages/{examId}
+   - Trainee cover page is always shown with visible loading/error messages
+   - Trainee records save to examRecords/{recordId}
+   - Records tab reads records only for authenticated instructor
+   ========================================================= */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+(() => {
+  'use strict';
+  const VERSION = 'v31-auth-firestore-github-final';
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyD3Rgcllxe6oeTzPAYaOEszukoAkx8EML8",
+    authDomain: "iadc-exam-record.firebaseapp.com",
+    projectId: "iadc-exam-record",
+    storageBucket: "iadc-exam-record.firebasestorage.app",
+    messagingSenderId: "84498092944",
+    appId: "1:84498092944:web:2d5640221b5c25ad93d915"
+  };
+  const DEFAULT_GITHUB_URL = 'https://nasserabounis-ops.github.io/IADC-Well-Sharp-Exam/';
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const bank = () => { try { return Array.isArray(window.BANK) ? window.BANK : (Array.isArray(BANK) ? BANK : []); } catch(_) { return []; } };
+  const state = () => { try { return window.APP_STATE || APP_STATE || {}; } catch(_) { return {}; } };
+  const safeAlert = (m) => { try { alert(m); } catch(_) { console.warn(m); } };
+
+  let app, auth, db;
+  try {
+    try { app = getApp('iadc-v31'); } catch(_) { app = initializeApp(FIREBASE_CONFIG, 'iadc-v31'); }
+    auth = getAuth(app);
+    db = getFirestore(app);
+    window.IADC_V31 = { app, auth, db, VERSION, FIREBASE_CONFIG };
+    window.IADC_FIREBASE_CONFIG = FIREBASE_CONFIG;
+    window.IADC_FIREBASE = Object.assign(window.IADC_FIREBASE || {}, { app, auth, db, doc, setDoc, getDoc, collection, getDocs, serverTimestamp, firebaseConfig: FIREBASE_CONFIG, version: VERSION });
+    console.log('[IADC v31] Firebase initialized for project:', FIREBASE_CONFIG.projectId);
+  } catch (err) {
+    console.error('[IADC v31] Firebase initialization failed:', err);
+    window.IADC_V31_ERROR = err;
+  }
+
+  function addFinalCss(){
+    if($('v31FinalCss')) return;
+    const s = document.createElement('style');
+    s.id = 'v31FinalCss';
+    s.textContent = `
+      body.shared-exam-landing{background:#020617!important;overflow:auto!important;}
+      body.shared-exam-landing header,body.shared-exam-landing main,body.shared-exam-landing .app-shell-sidebar,body.shared-exam-landing #entranceGateway{display:none!important;}
+      #sharedExamLanding:not(.hidden){display:block!important;}
+      .v31-auth-note{font-size:12px;font-weight:800;color:#475569;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px;margin-bottom:12px;line-height:1.45;}
+      .v31-status-ok{background:#dcfce7!important;color:#166534!important;border-color:#bbf7d0!important;}
+      .v31-status-warn{background:#fef3c7!important;color:#92400e!important;border-color:#fde68a!important;}
+      .v31-status-bad{background:#fee2e2!important;color:#991b1b!important;border-color:#fecaca!important;}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function normalizeUrl(input){
+    let url = String(input || '').trim() || DEFAULT_GITHUB_URL;
+    if(!/^https?:\/\//i.test(url)) url = DEFAULT_GITHUB_URL;
+    try {
+      const u = new URL(url);
+      u.search = '';
+      u.hash = '';
+      // GitHub Pages project sites need the trailing slash before ?examId
+      if(!u.pathname.endsWith('/') && !/\.html?$/i.test(u.pathname)) u.pathname += '/';
+      return u.toString();
+    } catch(_) { return DEFAULT_GITHUB_URL; }
+  }
+  window.getPlatformPublicUrl = function(){ return normalizeUrl($('shareHostedUrl')?.value || DEFAULT_GITHUB_URL); };
+
+  function setStatus(msg, ok=true){
+    const ids = ['firebaseShareStatus','qmStatus','recordDashboardFirebaseStatus','firebaseRecordsStatus'];
+    ids.forEach(id => { const el=$(id); if(el && (id !== 'qmStatus' || String(msg).length < 220)) { el.innerHTML = msg; el.classList.remove('v31-status-ok','v31-status-warn','v31-status-bad'); el.classList.add(ok ? 'v31-status-ok' : 'v31-status-bad'); } });
+    console[ok?'log':'warn']('[IADC v31]', msg.replace(/<[^>]*>/g,''));
+  }
+
+  async function waitForBankReady(timeoutMs=15000){
+    const start = Date.now();
+    while(Date.now() - start < timeoutMs){
+      const b = bank();
+      if(b.length >= 400) return b;
+      await sleep(120);
+    }
+    return bank();
+  }
+
+  function enhanceInstructorModal(){
+    const box = $('passwordModal');
+    if(!box || box.dataset.v31AuthEnhanced) return;
+    box.dataset.v31AuthEnhanced = '1';
+    const card = box.querySelector('.bg-white');
+    if(!card) return;
+    card.innerHTML = `
+      <div class="flex justify-between items-center mb-5">
+        <h3 class="text-xl font-black text-slate-800 flex items-center gap-2"><i class="ph-bold ph-lock-key text-brand-600"></i> Instructor Login</h3>
+        <button onclick="closePasswordModal()" class="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-lg"><i class="ph-bold ph-x text-xl"></i></button>
+      </div>
+      <div class="v31-auth-note">Use the Firebase Authentication instructor account you created. The local password alone cannot create secure Firestore exam links.</div>
+      <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Instructor Email</label>
+      <input type="email" id="firebaseInstructorEmail" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-brand-500 font-medium mb-4" placeholder="your instructor email" autocomplete="username" />
+      <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password</label>
+      <input type="password" id="instructorPassword" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-brand-500 font-medium mb-4" placeholder="Firebase password" autocomplete="current-password" />
+      <div id="firebaseInstructorLoginStatus" class="hidden text-sm font-bold rounded-xl p-3 mb-4"></div>
+      <button onclick="submitPassword()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 px-4 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2">
+        Login as Instructor <i class="ph-bold ph-arrow-right"></i>
+      </button>
+      <button onclick="firebaseInstructorLogout()" class="mt-3 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+        Sign out
+      </button>
+    `;
+    const savedEmail = localStorage.getItem('iadc_instructor_email') || '';
+    if($('firebaseInstructorEmail')) $('firebaseInstructorEmail').value = savedEmail;
+  }
+
+  function showLoginStatus(msg, good=false){
+    const s = $('firebaseInstructorLoginStatus');
+    if(s){ s.textContent = msg; s.className = `text-sm font-bold rounded-xl p-3 mb-4 ${good?'bg-green-50 text-green-700 border border-green-200':'bg-red-50 text-red-700 border border-red-200'}`; s.classList.remove('hidden'); }
+  }
+
+  window.promptInstructorLogin = function(){
+    enhanceInstructorModal();
+    const modal = $('passwordModal');
+    if(!modal) return;
+    modal.classList.remove('hidden');
+    requestAnimationFrame(()=>{ modal.classList.remove('opacity-0'); modal.classList.add('opacity-100'); });
+    setTimeout(()=>($('firebaseInstructorEmail') || $('instructorPassword'))?.focus(), 80);
+  };
+  window.closePasswordModal = function(){
+    const modal = $('passwordModal');
+    if(!modal) return;
+    modal.classList.remove('opacity-100'); modal.classList.add('opacity-0');
+    setTimeout(()=>modal.classList.add('hidden'), 200);
+  };
+  window.submitPassword = async function(){
+    enhanceInstructorModal();
+    if(!auth) return showLoginStatus('Firebase Auth is not initialized. Check the browser console and project config.');
+    const email = $('firebaseInstructorEmail')?.value?.trim() || '';
+    const pass = $('instructorPassword')?.value || '';
+    if(!email || !pass) return showLoginStatus('Enter instructor email and password.');
+    showLoginStatus('Signing in...', true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      localStorage.setItem('iadc_instructor_email', email);
+      const adminSnap = await getDoc(doc(db, 'admins', cred.user.uid));
+      if(!adminSnap.exists() || adminSnap.data()?.active !== true){
+        await signOut(auth);
+        return showLoginStatus('Login succeeded, but this user is not active in admins/{UID}. Create the admin document and try again.');
+      }
+      showLoginStatus('Instructor authenticated successfully.', true);
+      window.closePasswordModal();
+      try { window.activateInstructorMode?.(); } catch(e) { console.warn(e); }
+      updateAuthUi(cred.user);
+    } catch(err){
+      console.error('[IADC v31] Instructor login failed:', err);
+      showLoginStatus(err?.message || 'Instructor login failed.');
+    }
+  };
+  window.firebaseInstructorLogout = async function(){
+    try { if(auth) await signOut(auth); } catch(e){ console.warn(e); }
+    try { state().instructorMode = false; document.body.classList.remove('instructor-active'); } catch(_){}
+    updateAuthUi(null);
+    window.closePasswordModal?.();
+  };
+
+  async function isActiveInstructor(){
+    if(!auth?.currentUser || !db) return false;
+    try {
+      const snap = await getDoc(doc(db, 'admins', auth.currentUser.uid));
+      return snap.exists() && snap.data()?.active === true;
+    } catch(e){ console.warn('[IADC v31] admin check failed:', e); return false; }
+  }
+  function updateAuthUi(user){
+    const btn = $('instructorToggleBtn');
+    const roleBtn = $('shellRoleInstructor');
+    const email = user?.email || '';
+    if(btn){
+      if(user){ btn.innerHTML = `<i class="ph-bold ph-check-circle"></i> Instructor: ${esc(email)}`; btn.classList.add('bg-warning-100','text-warning-800','border-warning-300'); btn.classList.remove('bg-brand-600','text-white','border-brand-500'); }
+      else { btn.innerHTML = '<i class="ph-bold ph-lock-key"></i> Instructor Login'; }
+    }
+    if(roleBtn && user) roleBtn.textContent = 'INSTRUCTOR ✓';
+  }
+  if(auth) onAuthStateChanged(auth, async user => {
+    updateAuthUi(user);
+    if(user && await isActiveInstructor()){ try { window.activateInstructorMode?.(); } catch(e){ console.warn(e); } }
+  });
+
+  function ensureSharedLandingVisible(){
+    addFinalCss();
+    document.body.classList.add('shared-exam-landing');
+    $('entranceGateway')?.classList.add('hidden');
+    const landing = $('sharedExamLanding');
+    if(landing) landing.classList.remove('hidden');
+  }
+  function showSharedError(msg, loading=false){
+    ensureSharedLandingVisible();
+    const box = $('sharedExamError');
+    if(box){
+      box.textContent = msg;
+      box.classList.remove('hidden');
+      box.className = `${loading ? 'mt-4 bg-blue-50 border border-blue-200 text-blue-700' : 'mt-4 bg-red-50 border border-red-200 text-red-700'} rounded-2xl p-3 text-sm font-bold`;
+    } else safeAlert(msg);
+  }
+  function clearSharedError(){ const box=$('sharedExamError'); if(box){ box.textContent=''; box.classList.add('hidden'); } }
+  function fillLanding(payload, rows){
+    window.PENDING_SHARED_EXAM = { payload, rows };
+    ensureSharedLandingVisible();
+    clearSharedError();
+    const group = payload.groupName || payload.group || 'Ungrouped';
+    if($('sharedExamTitleView')) $('sharedExamTitleView').textContent = payload.title || 'WellSharp Exam';
+    if($('sharedGroupBadge')) $('sharedGroupBadge').innerHTML = `<i class="ph-bold ph-users-three"></i> Group: ${esc(group)}`;
+    if($('sharedStuGroup')) $('sharedStuGroup').value = group;
+    const meta = $('sharedExamMeta');
+    if(meta) meta.innerHTML = `
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="text-slate-400 text-xs uppercase font-black">Questions</div><div class="text-2xl font-black">${rows.length}</div></div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="text-slate-400 text-xs uppercase font-black">Time Limit</div><div class="text-2xl font-black">${Number(payload.minutes || 60)} min</div></div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-4 col-span-2"><div class="text-slate-400 text-xs uppercase font-black">Session ID</div><div class="text-sm font-black break-all">${esc(payload.sessionId || '-')}</div></div>`;
+  }
+  function resolveRows(payload){
+    const b = bank();
+    const rows = [];
+    (Array.isArray(payload?.refs) ? payload.refs : []).forEach(ref => {
+      const f = b.find(q => String(q.orig) === String(ref) || String(q.ref) === String(ref) || String(q.sessionNum) === String(ref));
+      if(f) rows.push({...f});
+    });
+    (Array.isArray(payload?.customQuestions) ? payload.customQuestions : []).forEach(q => rows.push({...q}));
+    return rows.map((q,i) => ({...q, sessionNum:i+1}));
+  }
+
+  window.loadExamPackageFromFirestore = async function(examId){
+    if(!examId) throw new Error('Missing examId.');
+    if(!db) throw new Error('Firestore is not initialized.');
+    console.log('Exam ID:', examId);
+    const snap = await getDoc(doc(db, 'examPackages', examId));
+    console.log('Exists:', snap.exists());
+    if(!snap.exists()) throw new Error(`Exam not found in Firestore: ${examId}. Regenerate the link from the latest GitHub version.`);
+    const data = snap.data();
+    console.log('Data:', data);
+    return data;
+  };
+  window.loadExamFromFirestore = async function(examId){
+    try {
+      showSharedError('Loading exam package from Firestore...', true);
+      await waitForBankReady();
+      const payload = await window.loadExamPackageFromFirestore(examId);
+      if(!payload || payload.type !== 'iwcf-shared-exam') throw new Error('Invalid exam package data.');
+      const rows = resolveRows(payload);
+      if(!rows.length) throw new Error('Exam package loaded, but the question bank did not match the selected refs. Upload this latest index.html and regenerate the exam link.');
+      fillLanding(payload, rows);
+      return payload;
+    } catch(err){
+      console.error('[IADC v31] Shared exam load failed:', err);
+      showSharedError(err?.message || String(err));
+      throw err;
+    }
+  };
+  window.detectSharedExamLink = async function(){
+    const examId = new URLSearchParams(window.location.search).get('examId');
+    if(!examId) return false;
+    ensureSharedLandingVisible();
+    await window.loadExamFromFirestore(examId);
+    return true;
+  };
+  window.beginSharedExamFromLanding = function(){
+    const pending = window.PENDING_SHARED_EXAM;
+    if(!pending?.rows?.length) return showSharedError('Exam is not ready yet. Refresh the page or ask the instructor to regenerate the link.');
+    const name = $('sharedStuName')?.value?.trim() || '';
+    const email = $('sharedStuEmail')?.value?.trim() || '';
+    if(!name || !email) return showSharedError('Full name and email / employee ID are required.');
+    if($('sharedExamAgree') && !$('sharedExamAgree').checked) return showSharedError('Please confirm the exam declaration before starting.');
+    const payload = pending.payload;
+    const groupName = $('sharedStuGroup')?.value?.trim() || payload.groupName || 'Ungrouped';
+    const st = state();
+    st.studentInfo = {
+      name, email, employeeId: email, group: groupName,
+      company: $('sharedStuCompany')?.value?.trim() || '',
+      rig: $('sharedStuRig')?.value?.trim() || '',
+      title: $('sharedStuTitle')?.value?.trim() || '',
+      experience: $('sharedStuExp')?.value?.trim() || '',
+      mobile: $('sharedStuPhone')?.value?.trim() || ''
+    };
+    st.sharedExam = { ...payload, groupName, startedAt: new Date().toISOString() };
+    if($('modeSel')) $('modeSel').value = 'exam';
+    if($('minutesInput')) $('minutesInput').value = Number(payload.minutes || 60);
+    $('sharedExamLanding')?.classList.add('hidden');
+    document.body.classList.remove('shared-exam-landing');
+    $('entranceGateway')?.classList.add('hidden');
+    if(typeof window.startSessionFromQuestionRows === 'function') window.startSessionFromQuestionRows(pending.rows, { mode:'exam', minutes:Number(payload.minutes || 60), shuffle:payload.shuffle !== false });
+    else showSharedError('Internal start-session function is missing. Re-upload the latest index.html.');
+  };
+
+  function selectedCustomQuestions(rows){
+    return (rows || []).filter(q => !(Number(q.orig) >= 1 && Number(q.orig) <= 402)).map(q => {
+      const copy = {...q};
+      if(copy.visual && String(copy.visual.src || '').length > 150000) copy.visual = {...copy.visual, src:''};
+      return copy;
+    });
+  }
+  window.saveExamPackageToFirestore = async function(payload){
+    if(!payload?.sessionId) throw new Error('Invalid exam package: missing sessionId.');
+    if(!auth?.currentUser){ window.promptInstructorLogin(); throw new Error('Instructor Firebase login is required before generating a shareable exam link.'); }
+    if(!(await isActiveInstructor())) throw new Error('This Firebase user is not active in admins/{UID}.');
+    await setDoc(doc(db, 'examPackages', payload.sessionId), { ...payload, platformVersion: VERSION, backend:'cloud-firestore-auth', updatedAt: new Date().toISOString(), updatedBy: auth.currentUser.email || auth.currentUser.uid });
+    return true;
+  };
+  window.packageQuestionsForLink = async function(rows, sourceLabel){
+    rows = Array.isArray(rows) ? rows : [];
+    if(!rows.length) return safeAlert('No questions selected. Select one or more categories/questions first.');
+    const title = $('shareExamTitle')?.value?.trim() || 'WellSharp Practice Exam';
+    const groupName = ($('shareGroupName')?.value || 'Ungrouped').trim() || 'Ungrouped';
+    const minutes = Math.max(1, parseInt($('shareExamMinutes')?.value || $('minutesInput')?.value || '60', 10));
+    const sessionId = `EX-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+    const payload = { type:'iwcf-shared-exam', version:31, createdAt:new Date().toISOString(), sessionId, title, groupName, minutes, mode:'exam', shuffle:!!$('shareShuffle')?.checked, sourceLabel:sourceLabel || 'Selected questions', refs:rows.map(q => Number(q.orig || q.ref || q.sessionNum)).filter(Boolean), customQuestions:selectedCustomQuestions(rows), firestoreProject:FIREBASE_CONFIG.projectId };
+    const out = $('shareLinkOutput'), stats = $('shareLinkStats');
+    if(out) out.textContent = 'Saving exam package to secure Cloud Firestore...';
+    if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • saving...`;
+    try { if(typeof switchQuestionManagerTab === 'function') switchQuestionManagerTab('share'); } catch(_){}
+    try { if(typeof renderShareQuestionPreview === 'function') renderShareQuestionPreview(rows); } catch(_){}
+    try {
+      await window.saveExamPackageToFirestore(payload);
+      const base = normalizeUrl($('shareHostedUrl')?.value || DEFAULT_GITHUB_URL);
+      const link = `${base}${base.includes('?') ? '&' : '?'}examId=${encodeURIComponent(sessionId)}`;
+      window.GENERATED_EXAM_LINK = link;
+      window.GENERATED_EXAM_PACKAGE = payload;
+      try { GENERATED_EXAM_LINK = link; GENERATED_EXAM_PACKAGE = payload; } catch(_){}
+      if(out){ out.textContent = link; out.style.whiteSpace='pre-wrap'; out.style.wordBreak='break-all'; }
+      if(stats) stats.textContent = `${rows.length} questions • ${minutes} min • ${groupName} • Firestore saved`;
+      const status = $('firebaseShareStatus'); if(status) status.innerHTML = '<i class="ph-bold ph-cloud-check"></i> Firestore saved. Link is ready.';
+      setStatus('Firestore saved. Trainee link is ready.', true);
+      return link;
+    } catch(err){
+      console.error('[IADC v31] link generation failed:', err);
+      const msg = err?.message || String(err);
+      if(out) out.textContent = 'Link was not generated because Firestore save failed.\n\n' + msg;
+      if(stats) stats.textContent = 'Save failed. Login as instructor and confirm admins/{UID} exists.';
+      const status = $('firebaseShareStatus'); if(status) status.innerHTML = '<i class="ph-bold ph-warning"></i> ' + esc(msg);
+      safeAlert('Exam link was not generated: ' + msg);
+      return '';
+    }
+  };
+  window.generateExamLinkFromDashboard = function(){
+    const rows = (typeof window.getDashboardSelectedQuestions === 'function') ? window.getDashboardSelectedQuestions() : bank();
+    return window.packageQuestionsForLink(rows, 'Dashboard selected categories');
+  };
+  window.generateExamLinkFromManagerFilters = function(){
+    let rows = [];
+    try { rows = (typeof getQuestionManagerRows === 'function') ? getQuestionManagerRows() : bank(); } catch(_) { rows = bank(); }
+    return window.packageQuestionsForLink(rows, 'Question Manager filters');
+  };
+  window.copyGeneratedExamLink = function(){
+    const txt = (window.GENERATED_EXAM_LINK || $('shareLinkOutput')?.textContent || '').trim();
+    const link = (txt.match(/https?:\/\/\S+/) || [txt])[0];
+    if(!/^https?:\/\//i.test(link)) return safeAlert('Generate a trainee link first.');
+    navigator.clipboard?.writeText(link).then(()=>setStatus('Link copied.', true)).catch(()=>prompt('Copy trainee link:', link));
+  };
+  window.openGeneratedExamLink = function(){
+    const txt = (window.GENERATED_EXAM_LINK || $('shareLinkOutput')?.textContent || '').trim();
+    const link = (txt.match(/https?:\/\/\S+/) || [txt])[0];
+    if(!/^https?:\/\//i.test(link)) return safeAlert('Generate a trainee link first.');
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
+  window.saveRecordToFirestore = async function(record){
+    if(!db) throw new Error('Firestore is not initialized.');
+    const id = record.recordKey || `${record.sessionId || 'session'}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    const prepared = {
+      ...record,
+      recordKey: id,
+      sessionId: String(record.sessionId || record.sharedExam?.sessionId || state().sharedExam?.sessionId || 'UNKNOWN'),
+      submittedAt: record.submittedAt || new Date().toISOString(),
+      trainee: record.trainee || record.studentInfo || state().studentInfo || {},
+      score: record.score || { pct: Number(record.scorePct || 0), correct: Number(record.correct || 0), total: Number(record.total || 0) },
+      platformVersion: VERSION
+    };
+    await setDoc(doc(db, 'examRecords', id), prepared);
+    return id;
+  };
+  window.pushRecordToEndpoint = async function(record){
+    try { await window.saveRecordToFirestore(record); setStatus('Record saved to Cloud Firestore.', true); }
+    catch(err){ console.error('[IADC v31] record save failed:', err); setStatus('Record saved locally, but Firestore save failed: ' + (err?.message || err), false); }
+  };
+  window.pollExamRecordsNow = async function(){
+    if(!auth?.currentUser){ window.promptInstructorLogin(); throw new Error('Instructor login is required to read records.'); }
+    if(!(await isActiveInstructor())) throw new Error('This Firebase user is not active in admins/{UID}.');
+    const snap = await getDocs(collection(db, 'examRecords'));
+    const online = [];
+    snap.forEach(d => online.push({ recordKey:d.id, ...d.data() }));
+    const local = JSON.parse(localStorage.getItem('iwcf_exam_records') || '[]');
+    const map = new Map();
+    [...local, ...online].forEach(r => map.set(r.recordKey || `${r.sessionId}_${r.trainee?.email || r.trainee?.name || Math.random()}`, r));
+    localStorage.setItem('iwcf_exam_records', JSON.stringify(Array.from(map.values())));
+    try { window.renderRecordsDashboard?.(); } catch(e){ console.warn(e); }
+    setStatus(`${online.length} online record(s) synchronized from Cloud Firestore.`, true);
+    return online;
+  };
+
+  function boot(){
+    addFinalCss();
+    enhanceInstructorModal();
+    const h = $('shareHostedUrl'); if(h && (!h.value || /web\.app|firebaseapp|file:/i.test(h.value))) h.value = DEFAULT_GITHUB_URL;
+    // Ensure launch/dashboard remains usable.
+    const launch = document.querySelector('#entranceGateway button, [onclick*="launchApp"]');
+    if(launch && !launch.dataset.v31launch){ launch.dataset.v31launch='1'; launch.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); try { $('entranceGateway')?.classList.add('hidden'); window.switchTab?.('dashboard'); } catch(err){ console.warn(err); } }, true); }
+    const examId = new URLSearchParams(window.location.search).get('examId');
+    if(examId){
+      console.log('[IADC v31] Shared exam link detected:', examId);
+      ensureSharedLandingVisible();
+      window.loadExamFromFirestore(examId).catch(()=>{});
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  window.addEventListener('load', boot);
 })();
 </script>
 
